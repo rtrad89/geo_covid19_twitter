@@ -1,0 +1,286 @@
+---
+title: "Exploratory Data Analysis of GeoCovid 19 Data on Feb 01"
+author: "Rafi Trad"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    df_print: default
+    fig_width: 8
+    fig_height: 8
+    theme: readable
+    toc: yes
+editor_options: 
+  chunk_output_type: console
+---
+# Exploration and Preprocessing of Twitter Data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+setwd("D:/Projects/Authorial_Clustering_Short_Texts_nPTM/Datasets/twitter sars-cov-2/ids_all_langs__2020-02-01")
+```
+
+```{r loading_data}
+library(dplyr)
+library(readr)
+library(stringr)
+library(poweRlaw)
+library(tm)
+library(wordcloud)
+library(textclean)
+
+twitter_data <- read_csv("ids_2020-02-01.csv")
+```
+Through [GeoCov19](https://crisisnlp.qcri.org/covid19), SARS-COV-2 related tweets on February the 1st, 2020 were elicited via Twitter APIs. The shape of data is [`r I(dim(twitter_data))`]. Within the data there are `r I(length(unique(twitter_data$user_screen_name)))` users (authors) who (re)tweeted these `r I(nrow(twitter_data))` tweets. However, we want users who wrote original tweets, not simply re-tweeted them. For that, we will filter out the pure re-tweets.
+
+```{r data_filtering}
+twitter_data = twitter_data %>% filter(is.na(reweet_id))
+```
+
+After selecting only the root tweets, we end up with `r nrow(twitter_data)` original tweets and a clusteriness ratio \(k/N\) of `r length(unique(twitter_data$user_screen_name))/nrow(twitter_data)`. Judging from the clusteriness ratio, it is still desirable to have bigger clusters; the expected average cluster size at this rate is `r nrow(twitter_data) / length(unique(twitter_data$user_screen_name))`.  Let's have a look at the users who tweeted at least 5 Covid-related tweets:
+
+```{r data_selection}
+# Taking only the users who tweeted 5 times at least
+frequent_tweeters = 
+  twitter_data %>%
+  count(user_screen_name, sort = TRUE, name="tweet_counts") %>%
+  filter(tweet_counts >= 5)
+# Only preserve the users who have 5 or more original tweets
+twitter_data = twitter_data %>%
+  filter(twitter_data$user_screen_name %in% frequent_tweeters$user_screen_name)
+```
+
+We find that there are `r nrow(frequent_tweeters)` of them, and the ordered frequency of their tweets can be depicted thus:
+
+```{r}
+plot(frequent_tweeters$tweet_counts, type="l",
+     ylab = "Tweeting Frequency on Feb 01", xlab = "User Index")
+```
+If you look at the geographical attributes, we have a general place associated with tweets besides accurate coordinates. Firstly we'll shine a light on how many tweets are tagged with a place:
+
+```{r}
+twitter_data = twitter_data %>% mutate(placetagged = !is.na(twitter_data$place))
+summary(twitter_data$placetagged)[2:3]
+```
+
+Let's detect how many tweets are geo-tagged:
+```{r}
+twitter_data = twitter_data %>%
+  mutate(geotagged = !is.na(twitter_data$coordinates))
+summary(twitter_data$geotagged)[2:3]
+```
+
+This indicates that there are `r with(twitter_data, length(placetagged[placetagged == T]))` tweets out of `r nrow(twitter_data)` associated with a place . Furthermore, the number of tweets which include geographical coordinates are `r length(twitter_data$geotagged[twitter_data$geotagged == T])` out of `r nrow(twitter_data)`.
+
+## Re-tweets Analysis
+As we see next, the re-tweet counts per original tweets are extremely skewed and imbalanced in general:
+```{r}
+summary(twitter_data$retweet_count)
+boxplot(twitter_data$retweet_count, main = "Boxplot of re-tweet counts")
+plot(sort(twitter_data$retweet_count, decreasing = TRUE), type = 'l', ylab = "Re-tweet Freq.")
+```
+
+Next we will group the re-tweets by author/tweeter and examine the data trends:
+
+```{r}
+tweets_by_user = twitter_data %>% group_by(user_screen_name) %>% summarise(freq = sum(retweet_count)) %>% arrange(desc(freq))
+summary(tweets_by_user$freq)
+plot(tweets_by_user$freq, type="l", xlab = "Users Index", ylab = "Frequency of Re-tweets")
+```
+
+## Hashtags analysis
+As the tweets are harvested using not only hashtags but also keywords, some of the tweets were not tagged with hash-tags. 
+
+```{r}
+# Number of tagged tweets
+tagged_count = twitter_data %>% filter(!is.na(hashtags)) %>% count %>% unlist
+```
+However, hashtags can provide valuable insights into the topic words to which the tweets are linked, consequently let's have a look at the top hashtags used by the `r tagged_count` tweets:
+
+```{r}
+tf = termFreq(doc = paste0(twitter_data$hashtags, collapse = " "),
+        control = list(tolower = TRUE))
+
+wordcloud(words = names(tf), freq = as.vector(tf), min.freq = 100,
+          max.words=50, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"), scale = c(5,1))
+```
+
+# Power-Law Analysis of Tweet Counts
+
+One pressing question is: do we have an underlying power-law distribution? This is likely, as we expect to find that the social media data follow Zipf's distribution. It is tricky, however, to prove this, since power-law can fit any data, so let's use an analytical solution in line with Clauset et al. A hypothesis test is performed with H0 being that the power-law fit is a good fit, and if \(p < 0.1\), then we can reject the power-law hypothesis and conclude that it is not a good fit to our data, hence no power-law.
+
+Fitting a (discrete) power-law distribution to the data gives us the red line in the following logarithmic figure:
+
+```{r}
+# Do we want to use the precompiled p-values to save time?
+use_precomputed_p_vals = TRUE
+object_pl = displ$new(frequent_tweeters$tweet_counts)
+object_pl$setXmin(estimate_xmin(object_pl))
+# There is no need to run the following line as parameters shall be estimated conditionally on xmin
+# object_frequesnt_tweeters$setPars(estimate_pars(object_frequesnt_tweeters))
+# Get the parameters
+xmin = object_pl$getXmin()
+alpha = object_pl$getPars()
+# Plotting
+plot(object_pl)
+lines(object_pl, col = 2)
+```
+
+The figure is not quite linear, and the estimated parameters are \(x_{min} = `r xmin`\) and \(\alpha = `r alpha`\); so:
+\[y = Cx^{-`r alpha`}: x > `r xmin`\]
+
+When testing the power-law hypothesis, we use a number of synthetic tests, and in each one we generate a synthetic true power-law distribution with the parameters \(x_{min} = `r xmin` \wedge \alpha = `r alpha`\). Upon that, KS distances from or data are calculated and we see how many times we score a similarity, which can indicate the percentage of times our data are similar to a true power-law one with the same parameters, and thus we calculate the p-value. 
+
+```{r}
+# Calucated spearately due to time
+if (use_precomputed_p_vals)
+{
+    # Since it takes a lot of time, I did the calculation once and here is the value
+  pval = 0.67
+} else {
+  bs_p = bootstrap_p(object_frequesnt_tweeters, no_of_sims = 2500, threads = 4)
+  pval = bs_p$p
+}
+```
+
+Executing this procedure with 2500 tests (to guarantee the the resultant p-value is accurate to 2 decimal digits as per Caluset et al.), we find that \(p = `r pval`\), which means that the power-law hypothesis **was `r ifelse(pval >= 0.1, "not rejected","rejected")`**.
+
+Knowing that power-law is a good fit doesn't mean it's the best fit, and for that, we shall compare it to the two most prominent competing distributions: the *lognormal* and *exponential* distributions.
+
+## Power-Law vs. Lognormal vs. Exponential
+In a similar fashion to how we tested for power-law, we will test for lognormal and exponential. The goal is determining whether power-law is the "best" fit or not.
+
+### Exponential Fit
+```{r}
+object_exp = disexp$new(frequent_tweeters$tweet_counts)
+object_exp$setXmin(estimate_xmin(object_exp))
+exp_xmin = object_exp$getXmin()
+exp_lambda = object_exp$getPars()
+
+# Calucated spearately due to time
+if (use_precomputed_p_vals)
+{
+  exp_p = 0.0012
+} else {
+  # Perform the tests and find the p-value for the lognormal distribution
+  exp_bs_p = bootstrap_p(object_exp, no_of_sims = 2500, threads = 4)
+  exp_p = exp_bs_p$p
+}
+```
+Fitting the exponential distributions gives us the parameters: \(x_{min} = `r exp_xmin` \wedge \lambda = `r exp_lambda`\). We perform 2500 tests to assess whether it is a good fit, and we end up with \(p = `r exp_p`\). This indicates that H0 (that the data is likely to be sampled from exponential distributions) **could `r ifelse(exp_p >= 0.1, "not", "")` be rejected**, and hence the exponential distribution being a possibility is out of the question.
+
+### Lognormal Fit
+```{r}
+object_lognormal = dislnorm$new(frequent_tweeters$tweet_counts)
+object_lognormal$setXmin(estimate_xmin(object_lognormal))
+ln_xmin = object_lognormal$getXmin()
+ln_mu = object_lognormal$getPars()[1]
+ln_ss = object_lognormal$getPars()[2]
+if (use_precomputed_p_vals)
+{
+  ln_p = 0.6324
+} else {
+  # Perform the tests and find the p-value for the lognormal distribution
+  ln_bs_p = bootstrap_p(object_lognormal, no_of_sims = 2500, threads = 4)
+  ln_p = ln_bs_p$p
+}
+```
+Fitting the lognormal distributions gives us the parameters: \(x_{min} = `r ln_xmin` \wedge \mu = `r ln_mu` \wedge \sigma^2 = `r ln_ss`\). We perform 2500 tests to assess whether it is a good fit, and we end up with \(p = `r ln_p`\). This indicates that H0 (that the data is likely to be from lognormal distributions) **could `r ifelse(ln_p >= 0.1, "not", "")` be rejected**.
+
+### Direct comparisons
+As shown above, power-law is a good fit of the selected twitter data. While an exponential distribution is found to be not a good fit, and thus ruled out, a lognormal distribution can describe the data as good as or even better than the power-law distribution. This marks the need for additional direct comparisons between power-law and lognormal.
+
+To compare these two distributions, we need to unify \(x_{min}\), and to this end, we will set it to be the maximum between the two fits and re-estimate the parameters where necessary. Our power-law fit uses \(x_{min} = `r xmin`\) while the lognormal fit picks \(x_{min} = `r ln_xmin`\); this leaves us with \(x_{min} = `r xmin`\) as a unification, and so we need to re-estimate the lognormal parameters.
+
+```{r}
+object_lognormal$setXmin(xmin)
+object_lognormal$setPars(estimate_pars(object_lognormal))
+ln_mu = object_lognormal$getPars()[1]
+ln_ss = object_lognormal$getPars()[2]
+```
+
+At \(x_{min} = `r xmin`\), the estimated lognormal parameters are \(\mu = `r ln_mu` \wedge \sigma^2 = `r ln_ss`\). Now that we unified the lower data threshold and updated the models where necessary, we can proceed in directly comparing them using a two-sided test with these two hypotheses:
+
+* H0: Both distributions are equally far from the true distribution
+* H1: One of the test distributions is closer to the true distribution
+
+```{r}
+comp = compare_distributions(object_pl, object_lognormal)
+```
+
+The result indicates that the two sided p-value is `r comp$p_two_sided` and the corresponding test statistic is `r comp$test_statistic`, and **H0 is not rejected**.
+
+## Conclusion
+Both of power-law and lognormal distributions perform equally well in fitting our heavy-tailed twitter data, where we prune away re-tweets and select users who tweeted five times at least. As a culmination, we provide a visual inspection of the two fits goodness-of-fit (log-log) plot below, where the power-law trajectory is superimposed in a solid black line, and the lognormal one is dashed and red.
+
+```{r}
+plot(object_pl, ylab = "CDF")
+lines(object_pl, lwd = 2)
+lines(object_lognormal, col = 2, lty = 2, lwd = 2)
+```
+
+# Data Cleaning and Preparation
+Firstly, we need to construct the suitable data object for further more advanced text mining and general data cleaning, comprising lower-casing and stripping excessive white spaces.
+
+We can have a look at the prominent words in the tweets via a word cloud, but the following code is generating a memory error due to the large data size.
+
+```{r include=FALSE, eval=FALSE}
+# This code needs a lot of RAM! didn't work
+# Using a volatile corpus so that the whole object is memory-dependant
+tweets = VCorpus(VectorSource(twitter_data$text))
+# Some cleaning:
+# Lowercasing
+tweets  = tm_map(tweets, content_transformer(tolower))
+# Removing excessive white spaces
+tweets = tm_map(tweets, stripWhitespace)
+# Building the term-doc matrix
+dtm_tweets = TermDocumentMatrix(tweets)
+
+m <- as.matrix(dtm_tweets)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 25)
+set.seet(13712)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+The domain-dependant data cleaning process consists of two main steps:
+* Cleaning the tweets from the hash-tags and the hyper-links, as these do not contribute to the writing styles of users
+* Removing too infrequent words as a preprocessing variant
+
+As to the included hyper-links in a tweet, `urls` attribute can be utilised towards removing them.
+
+We can find the hash-tags associated with each tweet via the `hashtags` attribute, so we can identify what hash-tags to remove via the following code snippet:
+
+```{r include=FALSE, eval=FALSE}
+# Non-vectorised case:
+untag_tweet = function(tweet, tag_lowcase = TRUE)
+{
+  # Process and get the existing hashtags
+  if(tag_lowcase)
+    hashtags = tolower(tweet$hashtags)
+  else
+    hashtags = tweet$hashtags
+  
+  # paste0("#", hashtags) # Still not working with tm
+  # Remove these hashtags from the tweet
+  cleaned_text = removeWords(tweet$text, hashtags)
+  tweet$processed_text = cleaned_text
+  return(tweet)
+}
+# Then we can remove these hastags from each tweet; we need the tm package
+# However, this doesn't work because tm_map requires a corpus of texts, and using sapply and lapply requires some work as the hashtags to remove are in another column. Nonetheless, we can remove all words starting with #!
+```
+```{r}
+# Make an augmented corpus with the relevant attribute and metadata
+# We need a specific order and naming of columns
+tagged_data = twitter_data %>% select(id, text, user_screen_name) %>% rename(doc_id = id)
+# Make the tm corpus thereof
+Coprus = VCorpus(DataframeSource(tagged_data))
+# Now we can apply the cleaning functions to remove the hashtags and hyperlinks from tweets
+Corpus = tm_map(x = Coprus, FUN = content_transformer(replace_hash))
+Corpus = tm_map(x = Corpus, FUN = content_transformer(replace_url))
+```
+
