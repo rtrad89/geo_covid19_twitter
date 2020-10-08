@@ -16,7 +16,6 @@ editor_options:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
-setwd("D:/Projects/Authorial_Clustering_Short_Texts_nPTM/Datasets/twitter sars-cov-2/ids_all_langs__2020-02-01")
 ```
 
 ```{r loading_data}
@@ -27,8 +26,9 @@ library(poweRlaw)
 library(tm)
 library(wordcloud)
 library(textclean)
+library(cowplot)
 
-twitter_data <- read_csv("ids_2020-02-01.csv")
+twitter_data <- read_csv("../../../Datasets/twitter-sars-cov-2/ids_all_langs__2020-02-01/ids_2020-02-01.csv")
 ```
 Through [GeoCov19](https://crisisnlp.qcri.org/covid19), SARS-COV-2 related tweets on February the 1st, 2020 were elicited via Twitter APIs. The shape of data is [`r I(dim(twitter_data))`]. Within the data there are `r I(length(unique(twitter_data$user_screen_name)))` users (authors) who (re)tweeted these `r I(nrow(twitter_data))` tweets. However, we want users who wrote original tweets, not simply re-tweeted them. For that, we will filter out the pure re-tweets.
 
