@@ -6,15 +6,30 @@ import os
 from shutil import rmtree
 import pandas as pd
 from sys import exit
+from root_logger import logger
+
 
 class DataTools:
     """
     """
-    
+
+    def __init__(self):
+        pass
+
     @staticmethod
     def load_tweets_ds(csv_fpath: str) -> pd.DataFrame:
-        pass
-    
+        if DataTools.path_exists(csv_fpath):
+            pd.read_csv(filepath_or_buffer=csv_fpath,
+                        encoding="utf-8", sep=",", header=True,
+                        usecols=["id", "created_at", "hashtags", "reweet_id",
+                                 "user_screen_name", "user_followers_count",
+                                 "user_friends_count", "user_verified",
+                                 "text"]
+                        )
+        else:
+            logger.error(msg=f"CSV file \"{csv_fpath}\" was not found.")
+            return None
+
     @staticmethod
     def initialise_directory(dir_path):
         """
@@ -68,7 +83,7 @@ class DataTools:
     @staticmethod
     def get_filename(path) -> str:
         return os.path.basename(path)
-    
+
     @staticmethod
     def scan_directory(path):
         return os.scandir(path)
@@ -80,7 +95,7 @@ class DataTools:
     @staticmethod
     def is_path_dir(path):
         return os.path.isdir(path)
-    
+
     @staticmethod
     def save_list_to_text(mylist: list, filepath: str,
                           header: str = None):
@@ -89,11 +104,12 @@ class DataTools:
                 file_handler.write(f"{header}\n{'-'*12}\n")
             for item in mylist:
                 file_handler.write(f"{item}\n")
-                
+
+
 def main():
     print("Data loader main..")
-    
     print("Exiting with code 0")
+    logger.shutdown()
     exit(0)
 
 
