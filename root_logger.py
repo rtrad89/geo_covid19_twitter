@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 A unified logger for all the modules in the project
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Data loader and transformer for GeoCov analyses
 
@@ -5,8 +6,10 @@ Data loader and transformer for GeoCov analyses
 import os
 from shutil import rmtree
 import pandas as pd
+from datetime import datetime as dt
 from root_logger import logger
 import gc
+import preprocessor as pptweet
 
 
 class DataTools:
@@ -21,9 +24,10 @@ class DataTools:
         pass
 
     @classmethod
-    def prune_retweets_to_csv(cls,
-                              csv_files: dict,
-                              dirpath: str):
+    def prune_retweets_clean_to_csv(cls,
+                                    csv_files: dict,
+                                    dirpath: str,
+                                    clean: bool = True):
         # Make sure it is a directory path
         if not cls.is_path_dir(dirpath):
             logger.error("You inputted a file path, not a directory")
@@ -39,12 +43,24 @@ class DataTools:
         else:
             for k, v in csv_files.items():
                 df = cls.load_tweets_ds(v, remove_retweets=True)
+                df = df.drop(columns="reweet_id")
+                df.text = cls.prerocess_tweets_texts(df.text)
                 # Save the pruned csv under the directory
-                filepath = f"{dirpath}\\original_{cls.get_filename(v)}"
+                filepath = f"{dirpath}\\original_{k}.csv"
                 df.to_csv(path_or_buf=filepath, sep=",",
                           index=False, encoding="utf-8")
                 logger.info(f"File {cls.get_filename(v)} pruned and saved")
                 cls.clean_memory()
+
+    @staticmethod
+    def prerocess_tweets_texts(texts: pd.Series) -> pd.Series:
+        ret = []
+        # clean only URLs and Emojis from tweets
+        pptweet.set_options(pptweet.OPT.URL, pptweet.OPT.EMOJI)
+        for text in texts:
+            ret.append(pptweet.clean(text))
+
+        return pd.Series(data=ret)
 
     @staticmethod
     def load_tweets_ds(csv_fpath: str,
@@ -56,7 +72,10 @@ class DataTools:
                 usecols=["id", "created_at", "hashtags", "reweet_id",
                          "user_screen_name", "user_followers_count",
                          "user_friends_count", "user_verified",
-                         "text"]
+                         "text"],
+                parse_dates=["created_at"],
+                date_parser=lambda x: dt.strptime(
+                    x, "%a %b %d %H:%M:%S +0000 %Y")
                 )
             if remove_retweets:
                 ret = ret[ret.reweet_id.isna()]
