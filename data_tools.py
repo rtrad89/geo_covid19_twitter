@@ -74,8 +74,7 @@ class DataTools:
                          "user_friends_count", "user_verified",
                          "text"],
                 parse_dates=["created_at"],
-                date_parser=lambda x: dt.strptime(
-                    x, "%a %b %d %H:%M:%S +0000 %Y")
+                infer_datetime_format=True
                 )
             if remove_retweets:
                 ret = ret[ret.reweet_id.isna()]
