@@ -15,12 +15,15 @@ logger = logging
 # File handler
 file_handler = logging.FileHandler(filename="app.log")
 file_handler.setFormatter(
-    logging.Formatter(fmt="[%(levelname)s]: %(message)s @ %(asctime)s",
-                      datefmt='%a, %d %b %Y %H:%M:%S',))
+    logging.Formatter(fmt="%(asctime)s [%(levelname)s]:\t%(message)s",
+                      datefmt="%Y.%m.%d.%a.%H:%M:%S")
+    )
 # Stdout handler
 stdout_handler = logging.StreamHandler(stdout)
 stdout_handler.setFormatter(
-    logging.Formatter(fmt="[%(levelname)s]: %(message)s"))
+    logging.Formatter(fmt="%(asctime)s [%(levelname)s]: %(message)s",
+                      datefmt="%a-%H:%M:%S")
+    )
 
 logger.basicConfig(
     level=logging.INFO,

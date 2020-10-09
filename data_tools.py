@@ -5,29 +5,64 @@ Data loader and transformer for GeoCov analyses
 import os
 from shutil import rmtree
 import pandas as pd
-from sys import exit
 from root_logger import logger
+import gc
 
 
 class DataTools:
     """
+    A static class to take care of data operations and transformations
     """
+    # Define the list of csv data, so that we save them to disk for subsequent
+    # visualisation and statistical learning
+    list_of_output_dfs = []
 
     def __init__(self):
         pass
 
-    @staticmethod
-    def load_tweets_ds(csv_fpath: str) -> pd.DataFrame:
-        if DataTools.path_exists(csv_fpath):
-            pd.read_csv(filepath_or_buffer=csv_fpath,
-                        encoding="utf-8", sep=",", header=True,
-                        usecols=["id", "created_at", "hashtags", "reweet_id",
-                                 "user_screen_name", "user_followers_count",
-                                 "user_friends_count", "user_verified",
-                                 "text"]
-                        )
+    @classmethod
+    def prune_retweets_to_csv(cls,
+                              csv_files: dict,
+                              dirpath: str):
+        # Make sure it is a directory path
+        if not cls.is_path_dir(dirpath):
+            logger.error("You inputted a file path, not a directory")
+        # Make the directory if it's not there
+        elif not cls.path_exists(dirpath):
+            cls.initialise_directories(dirpath)
+        # If the directory is not empty, user must investigate this
+        # so that no time/data are lost
+        elif not cls.is_dir_empty(dirpath):
+            logger.error("You inputted an unempty directory. "
+                         "if you still want to use it, make sure to "
+                         "backup or delete the files therein manually")
         else:
-            logger.error(msg=f"CSV file \"{csv_fpath}\" was not found.")
+            for k, v in csv_files.items():
+                df = cls.load_tweets_ds(v, remove_retweets=True)
+                # Save the pruned csv under the directory
+                filepath = f"{dirpath}\\original_{cls.get_filename(v)}"
+                df.to_csv(path_or_buf=filepath, sep=",",
+                          index=False, encoding="utf-8")
+                logger.info(f"File {cls.get_filename(v)} pruned and saved")
+                cls.clean_memory()
+
+    @staticmethod
+    def load_tweets_ds(csv_fpath: str,
+                       remove_retweets: bool = True) -> pd.DataFrame:
+        if DataTools.path_exists(csv_fpath):
+            ret = pd.read_csv(
+                filepath_or_buffer=csv_fpath,
+                encoding="utf-8", sep=",",
+                usecols=["id", "created_at", "hashtags", "reweet_id",
+                         "user_screen_name", "user_followers_count",
+                         "user_friends_count", "user_verified",
+                         "text"]
+                )
+            if remove_retweets:
+                ret = ret[ret.reweet_id.isna()]
+            return ret
+        else:
+            logger.error(msg=f"CSV file \"{csv_fpath}\" was not found")
             return None
 
     @staticmethod
@@ -49,8 +84,8 @@ class DataTools:
                 rmtree(dir_path)
             os.mkdir(dir_path)
         except PermissionError:
-            print("ERROR: Please make sure the folders required by the program"
-                  "are not already opened")
+            logger.error("Please make sure the folders required by the program"
+                         "are not already opened")
 
     @staticmethod
     def remove_directory(dir_path):
@@ -77,8 +112,8 @@ class DataTools:
                 rmtree(dir_path)
             os.makedirs(dir_path)
         except PermissionError:
-            print("ERROR: Please make sure the folders required by the program"
-                  "are not already opened")
+            logger.error("Please make sure the folders required by the program"
+                         "are not already opened")
 
     @staticmethod
     def get_filename(path) -> str:
@@ -96,6 +131,10 @@ class DataTools:
     def is_path_dir(path):
         return os.path.isdir(path)
 
+    @classmethod
+    def is_dir_empty(cls, path):
+        return len(os.listdir(path=path)) == 0
+
     @staticmethod
     def save_list_to_text(mylist: list, filepath: str,
                           header: str = None):
@@ -105,12 +144,24 @@ class DataTools:
             for item in mylist:
                 file_handler.write(f"{item}\n")
 
+    @classmethod
+    def add_output_df(cls,
+                      odf: pd.DataFrame) -> int:
+        if(odf is not None and len(odf) > 0):
+            cls.list_of_output_dfs.append(odf)
+            logger.info("Output dataframe added successfully")
+        else:
+            logger.warning("Cannot add empty dataframes to outputs")
+        return len(cls.list_of_output_dfs)
+
+    @staticmethod
+    def clean_memory():
+        logger.info(f"{gc.collect()} memory objects purged")
+
 
 def main():
-    print("Data loader main..")
-    print("Exiting with code 0")
+    print("Data loader main() here")
     logger.shutdown()
-    exit(0)
 
 
 if __name__ == "__main__":
