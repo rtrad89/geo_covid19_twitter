@@ -287,3 +287,6 @@ TSWLatexianTemp*
 
 # generated if using elsarticle.cls
 *.spl
+
+# generated HTML reports
+*.html
