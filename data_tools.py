@@ -6,7 +6,6 @@ Data loader and transformer for GeoCov analyses
 import os
 from shutil import rmtree
 import pandas as pd
-from datetime import datetime as dt
 from root_logger import logger
 import gc
 import preprocessor as pptweet
@@ -39,7 +38,8 @@ class DataTools:
         elif not cls.is_dir_empty(dirpath):
             logger.error("You inputted an unempty directory. "
                          "if you still want to use it, make sure to "
-                         "backup or delete the files therein manually")
+                         "backup or delete the files therein manually."
+                         "Continuing execution using already existent files")
         else:
             for k, v in csv_files.items():
                 df = cls.load_tweets_ds(v, remove_retweets=True)

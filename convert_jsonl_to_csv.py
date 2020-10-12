@@ -27,10 +27,10 @@ def extract_json(fileobj):
 data_json = io.open('tweets_20200501-V2.jsonl', mode='r', encoding='utf-8') # Opens in the JSONL file
 data_python = extract_json(data_json)
 
-csv_out = io.open('tweets_out_utf8.csv', mode='w', encoding='utf-8') #opens csv file
+csv_out = io.open('tweets_20200501.csv', mode='w', encoding='utf-8') #opens csv file
 
 
-fields = u'id,created_at,retweeted,user_screen_name,user_followers_count,user_friends_count,retweet_count,favourite_count,text' #field names
+fields = u'id,created_at,reweet_id,user_screen_name,user_followers_count,user_friends_count,retweet_count,favourite_count,text' #field names
 csv_out.write(fields)
 csv_out.write(u'\n')
 
@@ -42,7 +42,7 @@ for i, line in enumerate(data_python):
     #screen_name and followers/friends are found on the second level hence two get methods
     row = [line.get('id_str'),
            line.get('created_at'),
-           str(line.get('retweeted')),
+           line.get('retweeted_status').get('id_str') if line.get('retweeted_status') is not None else "",
            line.get('user').get('screen_name'),  
            str(line.get('user').get('followers_count')),
            str(line.get('user').get('friends_count')),

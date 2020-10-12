@@ -3,7 +3,7 @@ from data_tools import DataTools
 from root_logger import logger
 
 # Control variable:
-prune_tweets = False
+prune_tweets = True
 resave_5g_tagged_tweets = True
 # The paths to the datasets
 datasets_folder = r"..\..\Datasets\twitter-sars-cov-2"
@@ -16,13 +16,14 @@ master_folder = f"{datasets_folder}\\pruned"
 
 if prune_tweets:
     # If the tweet csvs still contain retweets, clean them
+    logger.info("You've chosen to prune the files. Pruning..")
     dpaths = {}
     dpaths["2002"] = (f"{datasets_folder}\\ids_all_langs__2020-02-01\\"
-                      "ids_2020-02-01.csv")
+                      "tweets_20200201.csv")
     dpaths["2003"] = (f"{datasets_folder}\\ids_2020-03-01\\"
-                      "tweets_2020-03-01.csv")
+                      "tweets_20200301.csv")
     dpaths["2004"] = (f"{datasets_folder}\\ids_2020-04-01\\"
-                      "covid19_tweets_20200401.csv")
+                      "tweets_20200401.csv")
     dpaths["2005"] = (f"{datasets_folder}\\ids_2020-05-01\\"
                       "tweets_20200501.csv")
     DataTools.prune_retweets_clean_to_csv(csv_files=dpaths,
