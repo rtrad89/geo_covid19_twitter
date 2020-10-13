@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 from data_tools import DataTools
 from root_logger import logger
+from conspiracy_detection import ConspiracyDetector
+
 
 # Control variable:
-prune_tweets = True
+prune_tweets = False
 resave_5g_tagged_tweets = True
 # The paths to the datasets
 datasets_folder = r"..\..\Datasets\twitter-sars-cov-2"
@@ -19,7 +21,7 @@ if prune_tweets:
     logger.info("You've chosen to prune the files. Pruning..")
     # Make a dictionary of tuples: filepaths and whether it's hydrator schema
     dpaths = {}
-    dpaths["2002"] = ((f"{datasets_folder}\\ids_all_langs__2020-02-01\\"
+    dpaths["2002"] = ((f"{datasets_folder}\\ids_2020-02-01\\"
                       "tweets_20200201.csv"), True)
     dpaths["2003"] = ((f"{datasets_folder}\\ids_2020-03-01\\"
                       "tweets_20200301.csv"), True)
@@ -44,6 +46,12 @@ with DataTools.scan_directory(master_folder) as docs:
                                                  remove_retweets=False)
         logger.info(f"File {doc.name} loaded into a dataframe")
 
+# Annotate tweets with 5G labels in five_g columns
+logger.info("Annotating tweets with 5G labels")
+dfs = ConspiracyDetector.annotate_tweets_ds(dict_ds=dfs,
+                                            store=resave_5g_tagged_tweets)
+
+logger.info("Annotation of 5G finished")
 
 logger.shutdown()
 logger.info("Main Module End.")

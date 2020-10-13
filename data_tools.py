@@ -27,27 +27,13 @@ class DataTools:
                                     csv_files: dict,
                                     dirpath: str,
                                     clean: bool = True):
-        # Make sure it is a directory path
-        if not cls.is_path_dir(dirpath):
-            logger.error("You inputted a file path, not a directory")
-        # Make the directory if it's not there
-        elif not cls.path_exists(dirpath):
-            cls.initialise_directories(dirpath)
-        # If the directory is not empty, user must investigate this
-        # so that no time/data are lost
-        elif not cls.is_dir_empty(dirpath):
-            logger.error("You inputted an unempty directory. "
-                         "if you still want to use it, make sure to "
-                         "backup or delete the files therein manually."
-                         "Continuing execution using already existent files")
-        else:
+        if cls.isready_dirpath(dirpath):
             for k, v in csv_files.items():
                 df = cls.load_tweets_ds(csv_fpath=v[0],
                                         hydrator_file=v[1],
                                         already_pruned=False,
                                         remove_retweets=True)
-                df.text = cls.prerocess_tweets_texts(df.text,
-                                                     idx=df.index)
+                df.text = cls.prerocess_tweets_texts(df.text)
                 # Save the pruned csv under the directory
                 filepath = f"{dirpath}\\original_{k}.csv"
 
@@ -61,15 +47,36 @@ class DataTools:
                 logger.info(f"File {cls.get_filename(v[0])} pruned and saved")
                 cls.clean_memory()
 
+    @classmethod
+    def isready_dirpath(cls, dirpath: str) -> bool:
+        # Make the directory if it's not there
+        if not cls.path_exists(dirpath):
+            cls.initialise_directories(dirpath)
+        # Make sure it is a directory path
+        if not cls.is_path_dir(dirpath):
+            logger.error("You inputted a file path, not a directory")
+            return False
+        # If the directory is not empty, user must investigate this
+        # so that no time/data are lost
+        elif not cls.is_dir_empty(dirpath):
+            logger.error("You inputted an unempty directory. "
+                         "if you still want to use it, make sure to "
+                         "backup or delete the files therein manually."
+                         "Continuing execution using already existent files")
+            return False
+
+        return True
+
     @staticmethod
-    def prerocess_tweets_texts(texts: pd.Series, idx: pd.Index) -> pd.Series:
+    def prerocess_tweets_texts(texts: pd.Series) -> pd.Series:
         ret = []
-        # clean only URLs and Emojis from tweets
-        pptweet.set_options(pptweet.OPT.URL, pptweet.OPT.EMOJI)
+        # Remove URLs, emojis, mentions and smilies from tweets
+        pptweet.set_options(pptweet.OPT.URL, pptweet.OPT.EMOJI,
+                            pptweet.OPT.MENTION, pptweet.OPT.SMILEY)
         for text in texts:
             ret.append(pptweet.clean(text))
 
-        return pd.Series(data=ret, index=idx)
+        return pd.Series(data=ret, index=texts.index)
 
     @staticmethod
     def load_tweets_ds(csv_fpath: str,
@@ -106,8 +113,6 @@ class DataTools:
             if remove_retweets:
                 ret = ret[ret.reweet_id.isna()]
                 ret = ret.drop(columns="reweet_id")
-                # # We need to reset the index since we removed rows
-                # ret.reset_index(inplace=True)
 
             return ret
         else:
