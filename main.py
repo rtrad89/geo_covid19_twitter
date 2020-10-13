@@ -17,24 +17,31 @@ master_folder = f"{datasets_folder}\\pruned"
 if prune_tweets:
     # If the tweet csvs still contain retweets, clean them
     logger.info("You've chosen to prune the files. Pruning..")
+    # Make a dictionary of tuples: filepaths and whether it's hydrator schema
     dpaths = {}
-    dpaths["2002"] = (f"{datasets_folder}\\ids_all_langs__2020-02-01\\"
-                      "tweets_20200201.csv")
-    dpaths["2003"] = (f"{datasets_folder}\\ids_2020-03-01\\"
-                      "tweets_20200301.csv")
-    dpaths["2004"] = (f"{datasets_folder}\\ids_2020-04-01\\"
-                      "tweets_20200401.csv")
-    dpaths["2005"] = (f"{datasets_folder}\\ids_2020-05-01\\"
-                      "tweets_20200501.csv")
-    DataTools.prune_retweets_clean_to_csv(csv_files=dpaths,
-                                          dirpath=master_folder)
+    dpaths["2002"] = ((f"{datasets_folder}\\ids_all_langs__2020-02-01\\"
+                      "tweets_20200201.csv"), True)
+    dpaths["2003"] = ((f"{datasets_folder}\\ids_2020-03-01\\"
+                      "tweets_20200301.csv"), True)
+    dpaths["2004"] = ((f"{datasets_folder}\\ids_2020-04-01\\"
+                      "tweets_20200401.csv"), True)
+    dpaths["2005"] = ((f"{datasets_folder}\\ids_2020-05-01\\"
+                      "tweets_20200501.csv"), False)
+    try:
+        DataTools.prune_retweets_clean_to_csv(csv_files=dpaths,
+                                              dirpath=master_folder)
+    except Exception:
+        logger.exception("exception raised")
 
 # append pruned to the master path and proceed:
 dfs = {}
 # Load the four datasets for pruning and saving
 with DataTools.scan_directory(master_folder) as docs:
     for doc in docs:
-        dfs[doc.name] = DataTools.load_tweets_ds(doc.path)
+        dfs[doc.name] = DataTools.load_tweets_ds(csv_fpath=doc.path,
+                                                 already_pruned=True,
+                                                 hydrator_file=True,
+                                                 remove_retweets=False)
         logger.info(f"File {doc.name} loaded into a dataframe")
 
 

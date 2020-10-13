@@ -16,7 +16,7 @@ logger = logging
 # File handler
 file_handler = logging.FileHandler(filename="app.log")
 file_handler.setFormatter(
-    logging.Formatter(fmt="%(asctime)s [%(levelname)s]:\t%(message)s",
+    logging.Formatter(fmt="%(asctime)s [%(levelname)s]: %(message)s",
                       datefmt="%Y.%m.%d.%a.%H:%M:%S")
     )
 # Stdout handler

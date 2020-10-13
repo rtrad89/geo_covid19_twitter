@@ -42,14 +42,23 @@ class DataTools:
                          "Continuing execution using already existent files")
         else:
             for k, v in csv_files.items():
-                df = cls.load_tweets_ds(v, remove_retweets=True)
+                df = cls.load_tweets_ds(csv_fpath=v[0],
+                                        hydrator_file=v[1],
+                                        already_pruned=False,
+                                        remove_retweets=True)
                 df = df.drop(columns="reweet_id")
                 df.text = cls.prerocess_tweets_texts(df.text)
                 # Save the pruned csv under the directory
                 filepath = f"{dirpath}\\original_{k}.csv"
+
+                if not v[1]:
+                    # Since we miss some columns here, we add them
+                    df["hashtags"] = None
+                    df["user_verified"] = None
+
                 df.to_csv(path_or_buf=filepath, sep=",",
                           index=False, encoding="utf-8")
-                logger.info(f"File {cls.get_filename(v)} pruned and saved")
+                logger.info(f"File {cls.get_filename(v[0])} pruned and saved")
                 cls.clean_memory()
 
     @staticmethod
@@ -64,15 +73,31 @@ class DataTools:
 
     @staticmethod
     def load_tweets_ds(csv_fpath: str,
-                       remove_retweets: bool = True) -> pd.DataFrame:
+                       already_pruned: bool,
+                       hydrator_file: bool,
+                       remove_retweets: bool) -> pd.DataFrame:
         if DataTools.path_exists(csv_fpath):
+            if hydrator_file:
+                # Hydrator acquires more columns
+                schema = ["id", "created_at", "hashtags", "reweet_id",
+                          "user_screen_name", "user_followers_count",
+                          "user_friends_count", "user_verified",
+                          "text"]
+            else:
+                # Less columns are acquired
+                schema = ["id", "created_at", "reweet_id",
+                          "user_screen_name", "user_followers_count",
+                          "user_friends_count",
+                          "text"]
+
+            if already_pruned:
+                # Then reweet_id is used and removed
+                schema.remove("reweet_id")
+
             ret = pd.read_csv(
                 filepath_or_buffer=csv_fpath,
                 encoding="utf-8", sep=",",
-                usecols=["id", "created_at", "hashtags", "reweet_id",
-                         "user_screen_name", "user_followers_count",
-                         "user_friends_count", "user_verified",
-                         "text"],
+                usecols=schema,
                 parse_dates=["created_at"],
                 infer_datetime_format=True
                 )
