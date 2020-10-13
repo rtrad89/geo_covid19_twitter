@@ -46,8 +46,8 @@ class DataTools:
                                         hydrator_file=v[1],
                                         already_pruned=False,
                                         remove_retweets=True)
-                df = df.drop(columns="reweet_id")
-                df.text = cls.prerocess_tweets_texts(df.text)
+                df.text = cls.prerocess_tweets_texts(df.text,
+                                                     idx=df.index)
                 # Save the pruned csv under the directory
                 filepath = f"{dirpath}\\original_{k}.csv"
 
@@ -62,14 +62,14 @@ class DataTools:
                 cls.clean_memory()
 
     @staticmethod
-    def prerocess_tweets_texts(texts: pd.Series) -> pd.Series:
+    def prerocess_tweets_texts(texts: pd.Series, idx: pd.Index) -> pd.Series:
         ret = []
         # clean only URLs and Emojis from tweets
         pptweet.set_options(pptweet.OPT.URL, pptweet.OPT.EMOJI)
         for text in texts:
             ret.append(pptweet.clean(text))
 
-        return pd.Series(data=ret)
+        return pd.Series(data=ret, index=idx)
 
     @staticmethod
     def load_tweets_ds(csv_fpath: str,
@@ -99,10 +99,16 @@ class DataTools:
                 encoding="utf-8", sep=",",
                 usecols=schema,
                 parse_dates=["created_at"],
-                infer_datetime_format=True
+                infer_datetime_format=True,
+                dtype={"id": str}
                 )
+
             if remove_retweets:
                 ret = ret[ret.reweet_id.isna()]
+                ret = ret.drop(columns="reweet_id")
+                # # We need to reset the index since we removed rows
+                # ret.reset_index(inplace=True)
+
             return ret
         else:
             logger.error(msg=f"CSV file \"{csv_fpath}\" was not found")
