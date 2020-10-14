@@ -52,7 +52,7 @@ class ConspiracyDetector:
             ds["five_g"] = cls.label_tweets(ds.text, mode=cls.G5)
             logger.info(f"Dataset {k} annotated with 5G labels")
             if store:
-                fpath = f"{dirpath}\\{k}"
+                fpath = f"{dirpath}\\annotated_{k}"
                 ds.to_csv(path_or_buf=fpath, sep=",",
                           index=False, encoding="utf-8")
                 logger.info(f"Annotated dataset {k} saved to disk")
