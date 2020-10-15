@@ -17,9 +17,13 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE,
 
 # Libraries
 library(readr)
+library(dplyr)
+library(ggplot2)
+
+ggplot2::theme_set(theme_linedraw)
 
 # Control variable
-RECOMBINE = TRUE
+RECOMBINE = FALSE
 
 DIR_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
@@ -73,17 +77,46 @@ if (RECOMBINE)
   # Drop tweets where label is NA
   tweets = tweets[!is.na(tweets$five_g),]
   
+
+  tweets$src = factor(x = tweets$src,
+                      ordered = TRUE,
+                      levels = c("Feb01", "Feb15", "Mar01", "Apr01", "May01"))
+  
   # Save tweets to disk
   write_csv(tweets, file = file.path(DIR_PATH, FNAME))
 } else {
-  tweets =read_csv(FPATH, col_types = cols(id = col_character()))
+  tweets = read_csv(FPATH, col_types = cols(
+    id = col_character(),
+    src = col_factor(ordered = TRUE,
+                     levels = c("Feb01", "Feb15", "Mar01", "Apr01", "May01")))
+    )
 }
 ```
 
 Previewing the data:
 
 ```{r}
+tweets %>%
+  group_by(src) %>%
+  count() %>%
+  ggplot(., aes(y = n, x = src)) +
+  geom_bar(stat = "identity") +
+  geom_label(aes(label=format(n, big.mark = ","))) +
+  ggtitle("Number of original tweets hydrated",
+          subtitle = "Re-tweets were excluded.") +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
 
+tweets %>%
+  group_by(src) %>%
+  summarise(n_users = n_distinct(user_screen_name)) %>%
+  ggplot(., aes(y = n_users, x = src)) +
+  geom_bar(stat = "identity") +
+  geom_label(aes(label=format(n_users, big.mark = ","))) +
+  ggtitle("Number of users of original tweets",
+          subtitle = "Re-tweets were excluded.") +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
 ```
 
 
