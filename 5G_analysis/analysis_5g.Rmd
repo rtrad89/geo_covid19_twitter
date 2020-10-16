@@ -1,10 +1,11 @@
 ---
-title: "5G Analysis of COVID-19 Tweets"
-output:
-  html_document:
-    df_print: paged
-  html_notebook:
-    theme: journal
+title: "5g_analysis"
+author: "RTRAD"
+date: "16/10/2020"
+output: 
+  html_document: 
+    fig_width: 8
+    fig_height: 7
 editor_options:
   chunk_output_type: console
 ---
@@ -19,9 +20,13 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE,
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(ggeasy)
+library(cowplot)
 
-ggplot2::theme_set(theme_linedraw)
-
+theme_set(theme_linedraw())
+theme_update(plot.title = element_text(hjust = 0.5),
+             plot.subtitle = element_text(hjust = 0.5))
+          
 # Control variable
 RECOMBINE = FALSE
 
@@ -93,19 +98,23 @@ if (RECOMBINE)
 }
 ```
 
+# General Analysis
+
 Previewing the data:
 
 ```{r}
-tweets %>%
+plot_tweets = 
+  tweets %>%
   group_by(src) %>%
-  count() %>%
+  count(src) %>%
   ggplot(., aes(y = n, x = src)) +
   geom_bar(stat = "identity") +
   geom_label(aes(label=format(n, big.mark = ","))) +
   ggtitle("Number of original tweets hydrated",
-          subtitle = "Re-tweets were excluded.") +
-  theme(plot.title = element_text(hjust = 0.5),
-        plot.subtitle = element_text(hjust = 0.5))
+          subtitle = "Re-tweets were excluded.")
+
+print(plot_tweets)
+  
 
 tweets %>%
   group_by(src) %>%
@@ -114,9 +123,95 @@ tweets %>%
   geom_bar(stat = "identity") +
   geom_label(aes(label=format(n_users, big.mark = ","))) +
   ggtitle("Number of users of original tweets",
-          subtitle = "Re-tweets were excluded.") +
-  theme(plot.title = element_text(hjust = 0.5),
-        plot.subtitle = element_text(hjust = 0.5))
+          subtitle = "Re-tweets were excluded.")
 ```
 
+
+```{r generating users statistics}
+if (file.exists(file.path(".", "usn_statistics.csv")))
+{
+  # Load the users statistics to save time
+  usn = read_csv(file.path(".", "usn_statistics.csv"),
+                 col_types = cols(src = col_factor(ordered = TRUE,
+                     levels = c("Feb01", "Feb15", "Mar01", "Apr01", "May01")))
+    )
+  
+  
+  
+} else {
+  # Make the user statistics and save it to disk
+  usn = tweets %>%
+    group_by(src, user_screen_name) %>%
+    count(user_screen_name) %>%
+    arrange(desc(n)) %>%
+    ungroup(user_screen_name) %>%
+    slice_max(n, n = 25) %>%
+    ungroup
+  
+  write.csv(usn, file = file.path(".", "usn_statistics.csv"),
+            row.names = FALSE)
+}
+
+# Visualise
+
+for (val in unique(usn$src))
+{
+  data = usn %>% filter(src == val)
+  
+  data %>%
+    select(user_screen_name, n)
+  plt =
+    ggplot(data, aes(x = reorder(user_screen_name, -n), y=n)) +
+    geom_bar(stat = "identity") +
+    ggtitle(paste("Top 25 tweeting frequencies by users in", val)) +
+    xlab("users") +
+    easy_remove_x_axis(what = "text")
+    
+
+  print(plt)
+}
+
+```
+
+# 5G analysis
+
+
+```{r}
+smry = summary(tweets$five_g)
+```
+
+There are `r round(100 * as.numeric(smry["TRUE"]) / nrow(tweets), 2)`% 5G tweets in the hydrated datasets.
+
+```{r}
+plt1 =
+  tweets %>%
+  filter(!five_g) %>%
+  group_by(src) %>%
+  ggplot(., aes(x = src)) +
+  geom_bar() +
+  geom_label(stat='count', aes(
+    label=format(after_stat(count),
+                 big.mark = ","))) +
+  ggtitle("Number of non-5G original tweets hydrated",
+          subtitle = "Re-tweets were excluded.") +
+  easy_remove_y_axis()
+
+plt2 = 
+  tweets %>%
+  filter(five_g) %>%
+  group_by(src) %>%
+  ggplot(., aes(x = src)) +
+  geom_bar() +
+  geom_label(stat='count', aes(label=format(after_stat(count),
+                                            big.mark = ","))) +
+  ggtitle("Number of 5G tweets hydrated",
+          subtitle = "Re-tweets were excluded.") +
+  easy_remove_y_axis()
+
+bottom_row = plot_grid(plt1, plt2)
+
+plot_grid(plot_tweets + easy_remove_y_axis(),
+          bottom_row, ncol = 1)
+rm(plt1, plt2)
+```
 
