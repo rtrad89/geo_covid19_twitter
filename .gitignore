@@ -290,3 +290,9 @@ TSWLatexianTemp*
 
 # generated HTML reports
 *.html
+
+# data files
+*.csv
+*.tsv
+*.json
+*.jsonl
