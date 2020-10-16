@@ -1,5 +1,5 @@
 ---
-title: "5g_analysis"
+title: "5G Analysis of COVID-19 Tweets"
 author: "RTRAD"
 date: "16/10/2020"
 output: 
@@ -21,6 +21,9 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 library(ggeasy)
+library(tm)
+library(wordcloud)
+library(textclean)
 library(cowplot)
 
 theme_set(theme_linedraw())
@@ -169,6 +172,7 @@ for (val in unique(usn$src))
     
 
   print(plt)
+  rm(plt)
 }
 
 ```
@@ -214,4 +218,57 @@ plot_grid(plot_tweets + easy_remove_y_axis(),
           bottom_row, ncol = 1)
 rm(plt1, plt2)
 ```
+
+Concentrating on 5g Tweets:
+
+```{r wordclouds}
+five_g_tweets = tweets %>%
+  filter(five_g)
+
+# Iterate to produce the wordclouds all of them at once
+for (val in unique(five_g_tweets$src))
+{
+  data = five_g_tweets %>% filter(src == val)
+  texts = VCorpus(VectorSource(data$text))
+  # Some cleaning:
+  # Lowercasing
+  texts  = tm_map(texts, content_transformer(tolower))
+  # Removing excessive white spaces
+  texts = tm_map(texts, stripWhitespace)
+  # Removing English stop-words
+  texts = tm_map(texts, removeWords, stopwords("english"))
+  # And Spanish stop-words
+  texts = tm_map(texts, removeWords, stopwords("spanish"))
+  # Building the term-doc matrix
+  dtm_tweets = TermDocumentMatrix(texts)
+  
+  m <- as.matrix(dtm_tweets)
+  v <- sort(rowSums(m),decreasing=TRUE)
+  d <- data.frame(word = names(v),freq=v)
+  
+  plt = 
+    ggplot(d[1:50, ],
+         aes(x = reorder(word, -freq), y = freq)) +
+    geom_bar(stat = "identity") +
+    xlab("frequent words") +
+    easy_rotate_x_labels(angle = 90) +
+    ggtitle(paste("Top 50 Frequent Words in", val))
+  print(plt)
+  rm(plt)
+  
+  # TODO replace all 5G variations with 5g
+  print(findAssocs(dtm_tweets, terms = c("#5g", "5g.", "5g,"), corlimit = .2))
+  
+  set.seed(13712)
+  layout(matrix(c(1, 2), nrow=2), heights=c(0.2, 5))
+  par(mar=rep(0, 4))
+  plot.new()
+  text(x=0.5, y=0.5, val, font = 2, cex = 1.2)
+  wordcloud(words = d$word, freq = d$freq, min.freq = 3,
+            max.words=100, random.order=FALSE, rot.per=0.35, 
+            colors=brewer.pal(8, "Dark2"),
+            main="Title")
+}
+```
+
 
