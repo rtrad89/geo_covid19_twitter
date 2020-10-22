@@ -32,10 +32,10 @@ theme_update(plot.title = element_text(hjust = 0.5),
           
 # Control variable
 RECOMBINE = FALSE
-
+# TODO: rename the folder to the original un-copied one
 DIR_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
-                     "annotated")
+                     "annotated - Copy")
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 ```
@@ -219,7 +219,7 @@ plot_grid(plot_tweets + easy_remove_y_axis(),
 rm(plt1, plt2)
 ```
 
-Concentrating on 5g Tweets:
+Concentrating on 5g Tweets after preprocessing:
 
 ```{r wordclouds}
 five_g_tweets = tweets %>%
@@ -233,13 +233,25 @@ for (val in unique(five_g_tweets$src))
   # Some cleaning:
   # Lowercasing
   texts  = tm_map(texts, content_transformer(tolower))
-  # Removing excessive white spaces
-  texts = tm_map(texts, stripWhitespace)
+  print(paste("Lowercasing done for dataset:", val))
   # Removing English stop-words
   texts = tm_map(texts, removeWords, stopwords("english"))
+  print(paste("English stopwords removed for dataset:", val))
   # And Spanish stop-words
   texts = tm_map(texts, removeWords, stopwords("spanish"))
-  # TODO: remove number tokens?
+  print(paste("Spanish stopwords removed for dataset:", val))
+  # function source: https://stackoverflow.com/a/23866586/3429115
+  remove_alone_nbr = function (x) 
+    gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
+  texts = tm_map(texts, content_transformer(remove_alone_nbr))
+  print(paste("Standalone numbers removed for dataset:", val))
+  # Remove hashtags
+  texts = tm_map(texts, content_transformer(replace_hash))
+  print(paste("Hashtags removed for dataset:", val))
+  # Remove URLS?
+  # Removing excessive white spaces
+  texts = tm_map(texts, stripWhitespace)
+  print(paste("White spaces normalised for dataset:", val))
   
   # Building the term-doc matrix
   dtm_tweets = TermDocumentMatrix(texts)

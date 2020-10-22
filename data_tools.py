@@ -61,7 +61,7 @@ class DataTools:
         elif not cls.is_dir_empty(dirpath):
             logger.error("You inputted an unempty directory. "
                          "if you still want to use it, make sure to "
-                         "backup or delete the files therein manually."
+                         "backup or delete the files therein manually. "
                          "Continuing execution using already existent files")
             return False
 
@@ -86,20 +86,20 @@ class DataTools:
         if DataTools.path_exists(csv_fpath):
             if hydrator_file:
                 # Hydrator acquires more columns
-                schema = ["id", "created_at", "hashtags", "reweet_id",
+                schema = ["id", "created_at", "hashtags", "retweet_id",
                           "user_screen_name", "user_followers_count",
                           "user_friends_count", "user_verified",
                           "text"]
             else:
                 # Less columns are acquired
-                schema = ["id", "created_at", "reweet_id",
+                schema = ["id", "created_at", "retweet_id",
                           "user_screen_name", "user_followers_count",
                           "user_friends_count",
                           "text"]
 
             if already_pruned:
-                # Then reweet_id is used and removed
-                schema.remove("reweet_id")
+                # Then retweet_id is used and removed
+                schema.remove("retweet_id")
 
             ret = pd.read_csv(
                 filepath_or_buffer=csv_fpath,
@@ -111,8 +111,8 @@ class DataTools:
                 )
 
             if remove_retweets:
-                ret = ret[ret.reweet_id.isna()]
-                ret = ret.drop(columns="reweet_id")
+                ret = ret[ret.retweet_id.isna()]
+                ret = ret.drop(columns="retweet_id")
 
             return ret
         else:
