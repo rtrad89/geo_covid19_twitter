@@ -239,6 +239,8 @@ for (val in unique(five_g_tweets$src))
   texts = tm_map(texts, removeWords, stopwords("english"))
   # And Spanish stop-words
   texts = tm_map(texts, removeWords, stopwords("spanish"))
+  # TODO: remove number tokens?
+  
   # Building the term-doc matrix
   dtm_tweets = TermDocumentMatrix(texts)
   
@@ -256,7 +258,7 @@ for (val in unique(five_g_tweets$src))
   print(plt)
   rm(plt)
   
-  # TODO replace all 5G variations with 5g
+  # TODO: replace all 5G variations with 5g
   print(findAssocs(dtm_tweets, terms = c("#5g", "5g.", "5g,"), corlimit = .2))
   
   set.seed(13712)
