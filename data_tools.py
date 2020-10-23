@@ -105,6 +105,10 @@ class DataTools:
                       "user_friends_count",
                       "text"]
 
+            if already_pruned:
+                # Then retweets are removed
+                schema.remove(fld)
+
             ret = pd.read_csv(
                 filepath_or_buffer=csv_fpath,
                 encoding="utf-8", sep=",",
@@ -117,10 +121,6 @@ class DataTools:
             if remove_retweets:
                 ret = ret[ret[fld].isna()]
                 ret = ret.drop(columns=fld)
-
-            if already_pruned:
-                # Then retweets are removed
-                schema.remove(fld)
 
             return ret
         else:

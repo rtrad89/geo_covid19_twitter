@@ -5,8 +5,8 @@ from conspiracy_detection import ConspiracyDetector
 
 
 # Control variable:
-prune_tweets = True
-resave_5g_tagged_tweets = False
+prune_tweets = False
+resave_5g_tagged_tweets = True
 # The paths to the datasets
 datasets_folder = r"..\..\Datasets\twitter-sars-cov-2"
 
@@ -40,6 +40,8 @@ if prune_tweets:
                                               dirpath=master_folder)
     except Exception:
         logger.exception("exception raised")
+
+logger.info("Pruning phase ended.")
 
 if not resave_5g_tagged_tweets:
     exit(0)
