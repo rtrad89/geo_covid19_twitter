@@ -32,10 +32,9 @@ theme_update(plot.title = element_text(hjust = 0.5),
           
 # Control variable
 RECOMBINE = FALSE
-# TODO: rename the folder to the original un-copied one
 DIR_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
-                     "annotated - Copy")
+                     "annotated")
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 ```
@@ -230,10 +229,15 @@ for (val in unique(five_g_tweets$src))
 {
   data = five_g_tweets %>% filter(src == val)
   texts = VCorpus(VectorSource(data$text))
+  # Communicate what basic preprocessing did:
+  print(paste("URLs, smilies, emojies and mentions had been removed for dataset:", val))
   # Some cleaning:
-  # Lowercasing
+  # Lower-casing
   texts  = tm_map(texts, content_transformer(tolower))
   print(paste("Lowercasing done for dataset:", val))
+  # Remove punctuation
+  texts = tm_map(texts, removePunctuation)
+  print(paste("Punctuation removed for dataset:", val))
   # Removing English stop-words
   texts = tm_map(texts, removeWords, stopwords("english"))
   print(paste("English stopwords removed for dataset:", val))
@@ -245,10 +249,9 @@ for (val in unique(five_g_tweets$src))
     gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
   texts = tm_map(texts, content_transformer(remove_alone_nbr))
   print(paste("Standalone numbers removed for dataset:", val))
-  # Remove hashtags
+  # Remove hash-tags
   texts = tm_map(texts, content_transformer(replace_hash))
   print(paste("Hashtags removed for dataset:", val))
-  # Remove URLS?
   # Removing excessive white spaces
   texts = tm_map(texts, stripWhitespace)
   print(paste("White spaces normalised for dataset:", val))
@@ -271,6 +274,7 @@ for (val in unique(five_g_tweets$src))
   rm(plt)
   
   # TODO: replace all 5G variations with 5g
+  # FIXME: no 5g mentions are being recorded anymore
   print(findAssocs(dtm_tweets, terms = c("#5g", "5g.", "5g,"), corlimit = .2))
   
   set.seed(13712)

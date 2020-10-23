@@ -25,8 +25,7 @@ class DataTools:
     @classmethod
     def prune_retweets_clean_to_csv(cls,
                                     csv_files: dict,
-                                    dirpath: str,
-                                    clean: bool = True):
+                                    dirpath: str):
         if cls.isready_dirpath(dirpath):
             for k, v in csv_files.items():
                 df = cls.load_tweets_ds(csv_fpath=v[0],
@@ -69,6 +68,22 @@ class DataTools:
 
     @staticmethod
     def prerocess_tweets_texts(texts: pd.Series) -> pd.Series:
+        """
+        Perform basic preprocessing before more elaborate preprocessing upon
+        EDA.
+
+        Parameters
+        ----------
+        texts : pd.Series
+            The texts of tweets to preprocess.
+
+        Returns
+        -------
+        pd.Series
+            The texts of tweets processed.
+
+        """
+
         ret = []
         # Remove URLs, emojis, mentions and smilies from tweets
         pptweet.set_options(pptweet.OPT.URL, pptweet.OPT.EMOJI,
@@ -84,22 +99,11 @@ class DataTools:
                        hydrator_file: bool,
                        remove_retweets: bool) -> pd.DataFrame:
         if DataTools.path_exists(csv_fpath):
-            if hydrator_file:
-                # Hydrator acquires more columns
-                schema = ["id", "created_at", "hashtags", "retweet_id",
-                          "user_screen_name", "user_followers_count",
-                          "user_friends_count", "user_verified",
-                          "text"]
-            else:
-                # Less columns are acquired
-                schema = ["id", "created_at", "retweet_id",
-                          "user_screen_name", "user_followers_count",
-                          "user_friends_count",
-                          "text"]
-
-            if already_pruned:
-                # Then retweet_id is used and removed
-                schema.remove("retweet_id")
+            fld = "retweet_id" if hydrator_file else "retweet_or_quote_id"
+            schema = ["id", "created_at", fld,
+                      "user_screen_name", "user_followers_count",
+                      "user_friends_count",
+                      "text"]
 
             ret = pd.read_csv(
                 filepath_or_buffer=csv_fpath,
@@ -111,8 +115,12 @@ class DataTools:
                 )
 
             if remove_retweets:
-                ret = ret[ret.retweet_id.isna()]
-                ret = ret.drop(columns="retweet_id")
+                ret = ret[ret[fld].isna()]
+                ret = ret.drop(columns=fld)
+
+            if already_pruned:
+                # Then retweets are removed
+                schema.remove(fld)
 
             return ret
         else:
