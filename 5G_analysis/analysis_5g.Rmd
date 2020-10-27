@@ -203,7 +203,7 @@ plt1 =
   geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
                                             big.mark = ",")),
              size = 3, vjust = 0.0) +
-  ggtitle("Number of non-5G original tweets hydrated (in Thousands)",
+  ggtitle("Number of non-5G tweets hydrated (in Thousands)",
           subtitle = "Re-tweets were excluded.") +
   easy_remove_y_axis()
 
@@ -245,14 +245,127 @@ rm(plot_tweets, plt1, plt2, plt3)
 
 Concentrating on 5g Tweets after preprocessing:
 
-```{r wordclouds}
+```{r combined dataset analysis}
 five_g_tweets = tweets %>%
   filter(five_g)
+rm(tweets)
 
-# Iterate to produce the word-clouds all of them at once
+  
+# Unify 5g synonyms
+five5_synonyms = c("5g,","5g.","5g?")
+unify_5g = function(x)
+{
+  stringi::stri_replace_all_fixed(str = x,
+                                    five5_synonyms,
+                                    "5g",
+                                    vectorise_all = F)
+}
+
+unify_5g2 = function(x) gsub("\\b5g\\b", " 5g ", x)
+
+
+# Unify coronavirus synonyms
+# Pay attention that the order is critical
+coronavirus_synonyms = c("corona virus","covid 19", "covid19", "coronavirus19",
+                         "covid", "coronavirusoutbreak", "corona ")
+unify_coronavirus = function(x)
+{
+  stringi::stri_replace_all_fixed(str = x,
+                                  coronavirus_synonyms,
+                                  "coronavirus",
+                                  vectorise_all = F)
+}
+
+set.seed(13712)
+  
+# Run the analysis for the combination of datasets
+texts = VCorpus(VectorSource(five_g_tweets$text))
+val="all combined"
+
+# Communicate what basic preprocessing did:
+print(paste("URLs, smilies, emojies and mentions had been removed for dataset:", val))
+# Some cleaning:
+
+# Lower-casing
+texts  = tm_map(texts, content_transformer(tolower))
+print(paste("Lowercasing done for dataset:", val))
+
+# Remove hash-tags
+texts = tm_map(texts, content_transformer(replace_hash))
+print(paste("Hashtags removed for dataset:", val))
+
+# Remove punctuation
+texts = tm_map(texts, removePunctuation)
+print(paste("Punctuation removed for dataset:", val))
+
+# Unify 5G variants
+# texts = tm_map(texts, content_transformer(unify_5g))
+texts = tm_map(texts, content_transformer(unify_5g2))
+print(paste("5g variants (5g! and the likes) were standardised in", val))
+
+# Unify Coronavirus synonyms
+texts = tm_map(texts, content_transformer(unify_coronavirus))
+print(paste("Coronavirus synonyms were unified in",
+            val))
+print(coronavirus_synonyms)
+
+# Removing English stop-words
+texts = tm_map(texts, removeWords, stopwords("english"))
+print(paste("English stopwords removed for dataset:", val))
+
+# And Spanish stop-words
+texts = tm_map(texts, removeWords, stopwords("spanish"))
+print(paste("Spanish stopwords removed for dataset:", val))
+
+# And stand-alone numbers
+# # function source: https://stackoverflow.com/a/23866586/3429115
+remove_alone_nbr = function (x)
+  gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
+texts = tm_map(texts, content_transformer(remove_alone_nbr))
+print(paste("Standalone numbers removed for dataset:", val))
+
+# Removing excessive white spaces
+texts = tm_map(texts, stripWhitespace)
+print(paste("White spaces normalised for dataset:", val))
+
+# Building the term-doc matrix
+dtm_tweets = TermDocumentMatrix(texts,
+                                control = list(wordLengths=c(2, Inf)))
+
+m <- as.matrix(dtm_tweets)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=unname(v))
+
+plt = 
+  ggplot(d[1:50, ],
+       aes(x = reorder(word, freq), y = freq)) +
+  geom_bar(stat = "identity") +
+  xlab("frequent words") +
+  #easy_rotate_x_labels(angle = 90) +
+  ggtitle(paste("Top 50 Frequent Words in", val, "(Excluding Hashtags)"))
+
+print(plt + coord_flip())
+rm(plt)
+
+print("Correlation among 5g and other terms (threshold = 0.1):")
+print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
+
+set.seed(13712)
+layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, val, font = 2, cex = 1)
+wordcloud(words = d$word, freq = d$freq, min.freq = 3,
+          max.words=50, random.order=FALSE, rot.per=0.35,
+          colors=brewer.pal(8, "Dark2"))
+
+
+```
+
+```{r, iterating over datasets}
+# Iterate to produce the word-clouds all of the datasets one by one
 for (val in unique(five_g_tweets$src))
 {
-  # TODO: investigate which preprocessing step is removing 5g
   data = five_g_tweets %>% filter(src == val)
   texts = VCorpus(VectorSource(data$text))
   # Communicate what basic preprocessing did:
@@ -266,33 +379,11 @@ for (val in unique(five_g_tweets$src))
   # Remove hash-tags
   texts = tm_map(texts, content_transformer(replace_hash))
   print(paste("Hashtags removed for dataset:", val))
-  
-  # Unify 5g synonyms
-  five5_synonyms = c("5g,","5g.","5g?")
-  unify_5g = function(x)
-  {
-    stringi::stri_replace_all_fixed(str = x,
-                                    five5_synonyms,
-                                    "5g",
-                                    vectorise_all = F)
-  }
-
-  unify_5g2 = content_transformer(function(x) gsub("\\b5g\\b", " 5g ", x))
 
   # texts = tm_map(texts, content_transformer(unify_5g))
-  texts = tm_map(texts, unify_5g2)
+  texts = tm_map(texts, content_transformer(unify_5g2))
   print(paste("5g variants (5g! and the likes) were standardised in", val))
   
-  # Unify coronavirus synonyms
-  coronavirus_synonyms = c("corona virus","covid 19", "coronavirus19",
-                           "covid","covid19", "coronavirusoutbreak", "corona ")
-  unify_coronavirus = function(x)
-  {
-    stringi::stri_replace_all_fixed(str = x,
-                                    coronavirus_synonyms,
-                                    "coronavirus",
-                                    vectorise_all = F)
-  }
   texts = tm_map(texts, content_transformer(unify_coronavirus))
   print(paste("Coronavirus synonyms were unified in",
               val))
@@ -312,8 +403,6 @@ for (val in unique(five_g_tweets$src))
   
   # And stand-alone numbers
   # # function source: https://stackoverflow.com/a/23866586/3429115
-  remove_alone_nbr = function (x)
-    gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
   texts = tm_map(texts, content_transformer(remove_alone_nbr))
   print(paste("Standalone numbers removed for dataset:", val))
 
@@ -341,9 +430,9 @@ for (val in unique(five_g_tweets$src))
   print(plt + coord_flip())
   rm(plt)
   
+  print("Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
   
-  set.seed(13712)
   layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
   par(mar=rep(0, 4))
   plot.new()
