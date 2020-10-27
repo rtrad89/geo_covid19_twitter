@@ -58,7 +58,7 @@ if (RECOMBINE)
   
   FNAME.May01 = "annotated_original_200501.csv"
   FPATH.May01 = file.path(DIR_PATH, FNAME.May01)
-  
+
   FNAME.Mar15 = "annotated_original_200315.csv"
   FPATH.Mar15 = file.path(DIR_PATH, FNAME.Mar15)
   
@@ -120,8 +120,8 @@ plot_tweets =
   count(src) %>%
   ggplot(., aes(y = n, x = src)) +
   geom_bar(stat = "identity") +
-  geom_label(aes(label=format(n, big.mark = ","))) +
-  ggtitle("Number of original tweets hydrated",
+  geom_label(aes(label=format(round(n/1000, 1), big.mark = ","))) +
+  ggtitle("Number of original tweets hydrated (in Thousands)",
           subtitle = "Re-tweets were excluded.")
 
 print(plot_tweets)
@@ -144,10 +144,9 @@ if (file.exists(file.path(".", "usn_statistics.csv")))
   # Load the users statistics to save time
   usn = read_csv(file.path(".", "usn_statistics.csv"),
                  col_types = cols(src = col_factor(ordered = TRUE,
-                     levels = c("Feb01", "Feb15", "Mar01", "Apr01", "May01")))
+                     levels = c("Feb01", "Feb15", "Mar01", "Mar15",
+                                 "Apr01", "Apr15","May01")))
     )
-  
-  
   
 } else {
   # Make the user statistics and save it to disk
@@ -194,17 +193,17 @@ smry = summary(tweets$five_g)
 
 There are `r round(100 * as.numeric(smry["TRUE"]) / nrow(tweets), 2)`% 5G tweets in the hydrated datasets.
 
-```{r}
+```{r, fig.height=12}
 plt1 =
   tweets %>%
   filter(!five_g) %>%
   group_by(src) %>%
   ggplot(., aes(x = src)) +
   geom_bar() +
-  geom_label(stat='count', aes(
-    label=format(after_stat(count),
-                 big.mark = ","))) +
-  ggtitle("Number of non-5G original tweets hydrated",
+  geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
+                                            big.mark = ",")),
+             size = 3, vjust = 0.0) +
+  ggtitle("Number of non-5G original tweets hydrated (in Thousands)",
           subtitle = "Re-tweets were excluded.") +
   easy_remove_y_axis()
 
@@ -214,17 +213,34 @@ plt2 =
   group_by(src) %>%
   ggplot(., aes(x = src)) +
   geom_bar() +
-  geom_label(stat='count', aes(label=format(after_stat(count),
-                                            big.mark = ","))) +
-  ggtitle("Number of 5G tweets hydrated",
+  geom_label(stat='count', aes(label=format(round(after_stat(count)/100, 1),
+                                            big.mark = ",")),
+             size = 3, vjust = 0.0) +
+  ggtitle("Number of 5G tweets hydrated (in Thousands)",
           subtitle = "Re-tweets were excluded.") +
   easy_remove_y_axis()
 
-bottom_row = plot_grid(plt1, plt2)
+mddl_row = plot_grid(plt1, plt2)
+
+plt3 =
+  tweets %>%
+  group_by(src) %>%
+  summarise(fraction = sum(five_g)/n()) %>%
+  ggplot(., aes(x = src, y = fraction)) +
+  geom_bar(stat = "identity") +
+  geom_text(stat="identity", aes(label=paste0(round(100*fraction, 2), "%")),
+            size = 5, hjust = 0.5, vjust = 1,
+            position = position_dodge2(width = 0), colour = "white") +
+  ggtitle("Percentage of 5G tweets hydrated",
+          subtitle = "Re-tweets were excluded.") +
+  easy_remove_y_axis()
 
 plot_grid(plot_tweets + easy_remove_y_axis(),
-          bottom_row, ncol = 1)
-rm(plt1, plt2)
+          mddl_row,
+          plt3,
+          ncol = 1)
+
+rm(plot_tweets, plt1, plt2, plt3)
 ```
 
 Concentrating on 5g Tweets after preprocessing:
@@ -242,34 +258,33 @@ for (val in unique(five_g_tweets$src))
   # Communicate what basic preprocessing did:
   print(paste("URLs, smilies, emojies and mentions had been removed for dataset:", val))
   # Some cleaning:
+  
   # Lower-casing
   texts  = tm_map(texts, content_transformer(tolower))
   print(paste("Lowercasing done for dataset:", val))
-  # Remove punctuation
-  texts = tm_map(texts, removePunctuation)
-  print(paste("Punctuation removed for dataset:", val))
-  # Removing English stop-words
-  texts = tm_map(texts, removeWords, stopwords("english"))
-  print(paste("English stopwords removed for dataset:", val))
-  # And Spanish stop-words
-  texts = tm_map(texts, removeWords, stopwords("spanish"))
-  print(paste("Spanish stopwords removed for dataset:", val))
-  # # Unify 5g synonyms
-  # five5_synonyms = c("#5g","5g,",
-  #                          "5g.","5g?")
-  # unify_5g = function(x)
-  # {
-  #   stringi::stri_replace_all_fixed(str = x,
-  #                                   five5_synonyms,
-  #                                   "5g",
-  #                                   vectorise_all = F)
-  # }
+  
+  # Remove hash-tags
+  texts = tm_map(texts, content_transformer(replace_hash))
+  print(paste("Hashtags removed for dataset:", val))
+  
+  # Unify 5g synonyms
+  five5_synonyms = c("5g,","5g.","5g?")
+  unify_5g = function(x)
+  {
+    stringi::stri_replace_all_fixed(str = x,
+                                    five5_synonyms,
+                                    "5g",
+                                    vectorise_all = F)
+  }
+
+  unify_5g2 = content_transformer(function(x) gsub("\\b5g\\b", " 5g ", x))
+
   # texts = tm_map(texts, content_transformer(unify_5g))
-  # print(paste("5g synonyms were unified in",
-  #             val))
-  # print(five5_synonyms)
+  texts = tm_map(texts, unify_5g2)
+  print(paste("5g variants (5g! and the likes) were standardised in", val))
+  
   # Unify coronavirus synonyms
-  coronavirus_synonyms = c("corona virus","covid 19",
+  coronavirus_synonyms = c("corona virus","covid 19", "coronavirus19",
                            "covid","covid19", "coronavirusoutbreak", "corona ")
   unify_coronavirus = function(x)
   {
@@ -282,48 +297,60 @@ for (val in unique(five_g_tweets$src))
   print(paste("Coronavirus synonyms were unified in",
               val))
   print(coronavirus_synonyms)
+  
+  # Removing English stop-words
+  texts = tm_map(texts, removeWords, stopwords("english"))
+  print(paste("English stopwords removed for dataset:", val))
+  
+  # And Spanish stop-words
+  texts = tm_map(texts, removeWords, stopwords("spanish"))
+  print(paste("Spanish stopwords removed for dataset:", val))
+  
+  # Remove punctuation
+  texts = tm_map(texts, removePunctuation)
+  print(paste("Punctuation removed for dataset:", val))
+  
   # And stand-alone numbers
-  # function source: https://stackoverflow.com/a/23866586/3429115
-  remove_alone_nbr = function (x) 
+  # # function source: https://stackoverflow.com/a/23866586/3429115
+  remove_alone_nbr = function (x)
     gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
   texts = tm_map(texts, content_transformer(remove_alone_nbr))
   print(paste("Standalone numbers removed for dataset:", val))
-  # # Remove hash-tags
-  # texts = tm_map(texts, content_transformer(replace_hash))
-  # print(paste("Hashtags removed for dataset:", val))
+
+  
   # Removing excessive white spaces
   texts = tm_map(texts, stripWhitespace)
   print(paste("White spaces normalised for dataset:", val))
   
   # Building the term-doc matrix
-  dtm_tweets = TermDocumentMatrix(texts)
+  dtm_tweets = TermDocumentMatrix(texts,
+                                  control = list(wordLengths=c(2, Inf)))
   
   m <- as.matrix(dtm_tweets)
   v <- sort(rowSums(m),decreasing=TRUE)
-  d <- data.frame(word = names(v),freq=v)
+  d <- data.frame(word = names(v),freq=unname(v))
   
   plt = 
     ggplot(d[1:50, ],
-         aes(x = reorder(word, -freq), y = freq)) +
+         aes(x = reorder(word, freq), y = freq)) +
     geom_bar(stat = "identity") +
     xlab("frequent words") +
-    easy_rotate_x_labels(angle = 90) +
-    ggtitle(paste("Top 50 Frequent Words in", val))
-  print(plt)
+    #easy_rotate_x_labels(angle = 90) +
+    ggtitle(paste("Top 50 Frequent Words in", val, "(Excluding Hashtags)"))
+  
+  print(plt + coord_flip())
   rm(plt)
   
-  # FIXME: no 5g mentions are being recorded any more
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
   
   set.seed(13712)
-  layout(matrix(c(1, 2), nrow=2), heights=c(0.2, 5))
+  layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
   par(mar=rep(0, 4))
   plot.new()
-  text(x=0.5, y=0.5, val, font = 2, cex = 1.2)
+  text(x=0.5, y=0.5, val, font = 2, cex = 1)
   wordcloud(words = d$word, freq = d$freq, min.freq = 3,
-            max.words=100, random.order=FALSE, rot.per=0.35, 
-            colors=brewer.pal(8, "Dark2"),
-            main="Title")
+            max.words=50, random.order=FALSE, rot.per=0.35,
+            colors=brewer.pal(8, "Dark2"))
 }
 ```
 
