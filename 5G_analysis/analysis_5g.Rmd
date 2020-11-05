@@ -19,6 +19,7 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE,
 # Libraries
 library(readr)
 library(dplyr)
+library(tidytext)
 library(ggplot2)
 library(ggeasy)
 library(tm)
@@ -111,9 +112,13 @@ if (RECOMBINE)
 
 # General Analysis
 
+As we found that English tweets pervade the datasets, we sufficed with them. Including other languages didn't drastically change the outputs due to that.
+
 Previewing the data:
 
 ```{r}
+# TODO change the scale itself rather than rounding
+# cf. https://stackoverflow.com/questions/52602503/display-an-axis-value-in-millions-in-ggplot
 plot_tweets = 
   tweets %>%
   group_by(src) %>%
@@ -121,8 +126,10 @@ plot_tweets =
   ggplot(., aes(y = n, x = src)) +
   geom_bar(stat = "identity") +
   geom_label(aes(label=format(round(n/1000, 1), big.mark = ","))) +
-  ggtitle("Number of original tweets hydrated (in Thousands)",
-          subtitle = "Re-tweets were excluded.")
+  ylim(0, 2100000) +
+  ggtitle("Number of original Eng tweets hydrated (in Thousands)",
+          subtitle = paste("Re-tweets were excluded; N = ",
+                           format(nrow(tweets),big.mark = ",")))
 
 print(plot_tweets)
   
@@ -133,8 +140,10 @@ tweets %>%
   ggplot(., aes(y = n_users, x = src)) +
   geom_bar(stat = "identity") +
   geom_label(aes(label=format(n_users, big.mark = ","))) +
-  ggtitle("Number of users of original tweets",
-          subtitle = "Re-tweets were excluded.")
+  ggtitle("Number of users of original Eng tweets",
+          subtitle = paste("Re-tweets were excluded; N = ",
+                           format(n_distinct(tweets$user_screen_name),
+                                  big.mark = ",")))
 ```
 
 
@@ -175,6 +184,7 @@ for (val in unique(usn$src))
     geom_bar(stat = "identity") +
     ggtitle(paste("Top 25 tweeting frequencies by users in", val)) +
     xlab("users") +
+    ylim(0, 7500) +
     easy_remove_x_axis(what = "text")
     
 
@@ -186,71 +196,7 @@ for (val in unique(usn$src))
 
 # 5G analysis
 
-
-```{r}
-smry = summary(tweets$five_g)
-```
-
-There are `r round(100 * as.numeric(smry["TRUE"]) / nrow(tweets), 2)`% 5G tweets in the hydrated datasets.
-
-```{r, fig.height=12}
-plt1 =
-  tweets %>%
-  filter(!five_g) %>%
-  group_by(src) %>%
-  ggplot(., aes(x = src)) +
-  geom_bar() +
-  geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
-                                            big.mark = ",")),
-             size = 3, vjust = 0.0) +
-  ggtitle("Number of non-5G tweets hydrated (in Thousands)",
-          subtitle = "Re-tweets were excluded.") +
-  easy_remove_y_axis()
-
-plt2 = 
-  tweets %>%
-  filter(five_g) %>%
-  group_by(src) %>%
-  ggplot(., aes(x = src)) +
-  geom_bar() +
-  geom_label(stat='count', aes(label=format(round(after_stat(count)/100, 1),
-                                            big.mark = ",")),
-             size = 3, vjust = 0.0) +
-  ggtitle("Number of 5G tweets hydrated (in Thousands)",
-          subtitle = "Re-tweets were excluded.") +
-  easy_remove_y_axis()
-
-mddl_row = plot_grid(plt1, plt2)
-
-plt3 =
-  tweets %>%
-  group_by(src) %>%
-  summarise(fraction = sum(five_g)/n()) %>%
-  ggplot(., aes(x = src, y = fraction)) +
-  geom_bar(stat = "identity") +
-  geom_text(stat="identity", aes(label=paste0(round(100*fraction, 2), "%")),
-            size = 5, hjust = 0.5, vjust = 1,
-            position = position_dodge2(width = 0), colour = "white") +
-  ggtitle("Percentage of 5G tweets hydrated",
-          subtitle = "Re-tweets were excluded.") +
-  easy_remove_y_axis()
-
-plot_grid(plot_tweets + easy_remove_y_axis(),
-          mddl_row,
-          plt3,
-          ncol = 1)
-
-rm(plot_tweets, plt1, plt2, plt3)
-```
-
-Concentrating on 5g Tweets after preprocessing:
-
-```{r combined dataset analysis}
-five_g_tweets = tweets %>%
-  filter(five_g)
-rm(tweets)
-
-  
+```{r functions definition}
 # Unify 5g synonyms
 five5_synonyms = c("5g,","5g.","5g?")
 unify_5g = function(x)
@@ -279,54 +225,135 @@ unify_coronavirus = function(x)
 set.seed(13712)
   
 # Run the analysis for the combination of datasets
+preprocess_texts = function(texts, val)
+{
+  # Communicate what basic preprocessing did:
+  print(paste("URLs, smilies, emojies and mentions had been removed from dataset:", val))
+  # Some cleaning:
+  
+  # Lower-casing
+  texts  = tm_map(texts, content_transformer(tolower))
+  print(paste("Lowercasing done for dataset:", val))
+  
+  # # Remove hash-tags
+  # texts = tm_map(texts, content_transformer(replace_hash))
+  # print(paste("Hashtags removed from dataset:", val))
+  
+  # Remove punctuation
+  texts = tm_map(texts, removePunctuation)
+  print(paste("Punctuation removed from dataset:", val))
+  
+  # Unify 5G variants
+  # texts = tm_map(texts, content_transformer(unify_5g))
+  texts = tm_map(texts, content_transformer(unify_5g2))
+  print(paste("5g variants (5g! and the likes) were standardised in", val))
+  
+  # Remove stand-alone numbers to get rind of 19
+  # # function source: https://stackoverflow.com/a/23866586/3429115
+  remove_alone_nbr = function (x)
+    gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
+  texts = tm_map(texts, content_transformer(remove_alone_nbr))
+  print(paste("Standalone numbers removed from dataset:", val))
+  
+  # Unify Coronavirus synonyms
+  texts = tm_map(texts, content_transformer(unify_coronavirus))
+  print(paste("Coronavirus synonyms were unified in",
+              val))
+  print(coronavirus_synonyms)
+  
+  # Removing English stop-words
+  texts = tm_map(texts, removeWords, stopwords("english"))
+  print(paste("English stopwords removed from dataset:", val))
+  
+  # Removing excessive white spaces
+  texts = tm_map(texts, stripWhitespace)
+  print(paste("White spaces normalised for dataset:", val))
+  
+  # Stemming the terms
+  texts = tm_map(texts, stemDocument, language = "english")
+  print(paste("Snowball Stemming done for dataset:", val))
+  
+  return(texts)
+}
+```
+
+```{r}
+smry = summary(tweets$five_g)
+```
+
+There are `r round(100 * as.numeric(smry["TRUE"]) / nrow(tweets), 2)`% 5G tweets in the hydrated datasets.
+
+```{r, fig.height=12}
+plt1 =
+  tweets %>%
+  filter(!five_g) %>%
+  group_by(src) %>%
+  ggplot(., aes(x = src)) +
+  geom_bar() +
+  geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
+                                            big.mark = ",")),
+             size = 3, vjust = 0.0) +
+  ggtitle("Number of non-5G tweets hydrated (in Thousands)",
+          subtitle = paste("Re-tweets were excluded; N =",
+                           format(nrow(subset(tweets, !five_g), big.mark=",")))) +
+  ylim(0, 2100000) +
+  easy_remove_y_axis() +
+  easy_text_size(which = "plot.title", size = 12)
+
+plt2 = 
+  tweets %>%
+  filter(five_g) %>%
+  group_by(src) %>%
+  ggplot(., aes(x = src)) +
+  geom_bar() +
+  geom_label(stat='count', aes(label=format(round(after_stat(count)/100, 1),
+                                            big.mark = ",")),
+             size = 3, vjust = 0.0) +
+  ggtitle("Number of 5G tweets hydrated (in Thousands)",
+          subtitle = paste("Re-tweets were excluded; N =",
+                           format(nrow(subset(tweets, five_g),big.mark=",")))) +
+  ylim(0, 2100000) +
+  easy_remove_y_axis() +
+  easy_text_size(which = "plot.title", size = 12)
+
+mddl_row = plot_grid(plt1, plt2)
+
+plt3 =
+  tweets %>%
+  group_by(src) %>%
+  summarise(fraction = sum(five_g)/n()) %>%
+  ggplot(., aes(x = src, y = fraction)) +
+  geom_bar(stat = "identity") +
+  geom_text(stat="identity", aes(label=paste0(round(100*fraction, 2), "%")),
+            size = 5, hjust = 0.5, vjust = 1,
+            position = position_dodge2(width = 0), colour = "white") +
+  ggtitle("Percentage of 5G tweets hydrated",
+          subtitle = paste("Re-tweets were excluded; N =",
+                           format(nrow(tweets), big.mark = ",")))+
+  easy_remove_y_axis()
+
+plot_grid(plot_tweets + easy_remove_y_axis(),
+          mddl_row,
+          plt3,
+          ncol = 1)
+
+rm(plot_tweets, plt1, plt2, plt3)
+```
+
+Concentrating on 5g Tweets after preprocessing:
+
+```{r combined dataset analysis}
+five_g_tweets = tweets %>%
+  filter(five_g)
+
+#rm(tweets)
+
+set.seed(13712)
+
 texts = VCorpus(VectorSource(five_g_tweets$text))
 val="all combined"
 
-# Communicate what basic preprocessing did:
-print(paste("URLs, smilies, emojies and mentions had been removed for dataset:", val))
-# Some cleaning:
-
-# Lower-casing
-texts  = tm_map(texts, content_transformer(tolower))
-print(paste("Lowercasing done for dataset:", val))
-
-# Remove hash-tags
-texts = tm_map(texts, content_transformer(replace_hash))
-print(paste("Hashtags removed for dataset:", val))
-
-# Remove punctuation
-texts = tm_map(texts, removePunctuation)
-print(paste("Punctuation removed for dataset:", val))
-
-# Unify 5G variants
-# texts = tm_map(texts, content_transformer(unify_5g))
-texts = tm_map(texts, content_transformer(unify_5g2))
-print(paste("5g variants (5g! and the likes) were standardised in", val))
-
-# Unify Coronavirus synonyms
-texts = tm_map(texts, content_transformer(unify_coronavirus))
-print(paste("Coronavirus synonyms were unified in",
-            val))
-print(coronavirus_synonyms)
-
-# Removing English stop-words
-texts = tm_map(texts, removeWords, stopwords("english"))
-print(paste("English stopwords removed for dataset:", val))
-
-# And Spanish stop-words
-texts = tm_map(texts, removeWords, stopwords("spanish"))
-print(paste("Spanish stopwords removed for dataset:", val))
-
-# And stand-alone numbers
-# # function source: https://stackoverflow.com/a/23866586/3429115
-remove_alone_nbr = function (x)
-  gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
-texts = tm_map(texts, content_transformer(remove_alone_nbr))
-print(paste("Standalone numbers removed for dataset:", val))
-
-# Removing excessive white spaces
-texts = tm_map(texts, stripWhitespace)
-print(paste("White spaces normalised for dataset:", val))
+texts = preprocess_texts(texts, val)
 
 # Building the term-doc matrix
 dtm_tweets = TermDocumentMatrix(texts,
@@ -347,7 +374,7 @@ plt =
 print(plt + coord_flip())
 rm(plt)
 
-print("Correlation among 5g and other terms (threshold = 0.1):")
+print("Pearson Correlation among 5g and other terms (threshold = 0.1):")
 print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
 
 set.seed(13712)
@@ -355,9 +382,8 @@ layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
 par(mar=rep(0, 4))
 plot.new()
 text(x=0.5, y=0.5, val, font = 2, cex = 1)
-wordcloud(words = d$word, freq = d$freq, min.freq = 3,
-          max.words=50, random.order=FALSE, rot.per=0.35,
-          colors=brewer.pal(8, "Dark2"))
+wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
+          max.words=150, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
 
 ```
@@ -368,48 +394,8 @@ for (val in unique(five_g_tweets$src))
 {
   data = five_g_tweets %>% filter(src == val)
   texts = VCorpus(VectorSource(data$text))
-  # Communicate what basic preprocessing did:
-  print(paste("URLs, smilies, emojies and mentions had been removed for dataset:", val))
-  # Some cleaning:
   
-  # Lower-casing
-  texts  = tm_map(texts, content_transformer(tolower))
-  print(paste("Lowercasing done for dataset:", val))
-  
-  # Remove hash-tags
-  texts = tm_map(texts, content_transformer(replace_hash))
-  print(paste("Hashtags removed for dataset:", val))
-
-  # texts = tm_map(texts, content_transformer(unify_5g))
-  texts = tm_map(texts, content_transformer(unify_5g2))
-  print(paste("5g variants (5g! and the likes) were standardised in", val))
-  
-  texts = tm_map(texts, content_transformer(unify_coronavirus))
-  print(paste("Coronavirus synonyms were unified in",
-              val))
-  print(coronavirus_synonyms)
-  
-  # Removing English stop-words
-  texts = tm_map(texts, removeWords, stopwords("english"))
-  print(paste("English stopwords removed for dataset:", val))
-  
-  # And Spanish stop-words
-  texts = tm_map(texts, removeWords, stopwords("spanish"))
-  print(paste("Spanish stopwords removed for dataset:", val))
-  
-  # Remove punctuation
-  texts = tm_map(texts, removePunctuation)
-  print(paste("Punctuation removed for dataset:", val))
-  
-  # And stand-alone numbers
-  # # function source: https://stackoverflow.com/a/23866586/3429115
-  texts = tm_map(texts, content_transformer(remove_alone_nbr))
-  print(paste("Standalone numbers removed for dataset:", val))
-
-  
-  # Removing excessive white spaces
-  texts = tm_map(texts, stripWhitespace)
-  print(paste("White spaces normalised for dataset:", val))
+  texts = preprocess_texts(texts, val)
   
   # Building the term-doc matrix
   dtm_tweets = TermDocumentMatrix(texts,
@@ -430,7 +416,7 @@ for (val in unique(five_g_tweets$src))
   print(plt + coord_flip())
   rm(plt)
   
-  print("Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
+  print("Pearson Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
   
   layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
@@ -438,9 +424,24 @@ for (val in unique(five_g_tweets$src))
   plot.new()
   text(x=0.5, y=0.5, val, font = 2, cex = 1)
   wordcloud(words = d$word, freq = d$freq, min.freq = 3,
-            max.words=50, random.order=FALSE, rot.per=0.35,
+            max.words=150, random.order=FALSE, rot.per=0.35,
             colors=brewer.pal(8, "Dark2"))
+  
+  # Salience analysis
+  # df = tidy(dtm_tweets)
+  
 }
+
 ```
+
+We will calculate the probabilities of a term \(w\) given the term \(5g\):
+
+\[P(w | 5g) = \frac{P(w \cap 5g)}{P(5g)} = \frac{C(tweets_{w\wedge5g})}{C(tweets_{5g})}\]
+
+Where:
+
+\[P(w \cap 5g) = \frac{C(tweets_{w\wedge5g})}{C(tweets_{all})}\]
+\[P(5g) = \frac{C(tweets_{5g})}{C(tweets_{all})}\]
+
 
 

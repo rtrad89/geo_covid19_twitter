@@ -25,7 +25,8 @@ class DataTools:
     @classmethod
     def prune_retweets_clean_to_csv(cls,
                                     csv_files: dict,
-                                    dirpath: str):
+                                    dirpath: str,
+                                    only_eng: bool = True):
         if cls.isready_dirpath(dirpath):
             for k, v in csv_files.items():
                 df = cls.load_tweets_ds(csv_fpath=v[0],
@@ -40,6 +41,10 @@ class DataTools:
                     # Since we miss some columns here, we add them
                     df["hashtags"] = None
                     df["user_verified"] = None
+
+                if only_eng:
+                    df = df[df.lang == "en"]
+                    df = df.drop(columns="lang")
 
                 df.to_csv(path_or_buf=filepath, sep=",",
                           index=False, encoding="utf-8")
@@ -100,7 +105,7 @@ class DataTools:
                        remove_retweets: bool) -> pd.DataFrame:
         if DataTools.path_exists(csv_fpath):
             fld = "retweet_id" if hydrator_file else "retweet_or_quote_id"
-            schema = ["id", "created_at", fld,
+            schema = ["id", "lang", "created_at", fld,
                       "user_screen_name", "user_followers_count",
                       "user_friends_count",
                       "text"]
