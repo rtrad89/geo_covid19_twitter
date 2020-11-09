@@ -24,8 +24,8 @@ class ConspiracyDetector:
                      ) -> pd.Series:
         # This routine would label a tweet as discussing 5G or not
         if mode == cls.G5:
-            # FIXME: avoid matching invalid strings like "15g" in May01
-            label = texts.str.contains(pat=r"5g", case=False, regex=True)
+            label = texts.str.contains(pat=r"\b5g\b",
+                                       case=False, regex=True)
         elif mode == cls.CHIP:
             label = texts.str.contains(pat=r"chip", case=False, regex=True)
         else:

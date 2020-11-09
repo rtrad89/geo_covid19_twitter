@@ -5,7 +5,7 @@ from conspiracy_detection import ConspiracyDetector
 
 
 # Control variable:
-prune_tweets = True
+prune_tweets = False
 resave_5g_tagged_tweets = True
 # The paths to the datasets
 datasets_folder = r"..\..\Datasets\twitter-sars-cov-2"

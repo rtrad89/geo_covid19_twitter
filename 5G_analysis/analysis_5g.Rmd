@@ -38,6 +38,11 @@ DIR_PATH = file.path("..", "..", "..",
                      "annotated")
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
+
+RESAVE_TDMs = TRUE  # TRUE takes a LOT of time!
+DIR_TDMs_PATH = file.path("..", "..", "..",
+                     "Datasets","twitter-sars-cov-2",
+                     "preprocessed_tdms")
 ```
 
 Loading the data:
@@ -222,56 +227,60 @@ unify_coronavirus = function(x)
                                   vectorise_all = F)
 }
 
+replacePunctuation = content_transformer(function(x) {
+  return (gsub("[[:punct:]]"," ", x))
+  })
+
 set.seed(13712)
   
 # Run the analysis for the combination of datasets
-preprocess_texts = function(texts, val)
+preprocess_texts = function(texts, marker)
 {
   # Communicate what basic preprocessing did:
-  print(paste("URLs, smilies, emojies and mentions had been removed from dataset:", val))
+  print(paste("URLs, smilies, emojies and mentions had been removed from dataset:", marker))
   # Some cleaning:
   
   # Lower-casing
   texts  = tm_map(texts, content_transformer(tolower))
-  print(paste("Lowercasing done for dataset:", val))
+  print(paste("Lowercasing done for dataset:", marker))
   
   # # Remove hash-tags
   # texts = tm_map(texts, content_transformer(replace_hash))
-  # print(paste("Hashtags removed from dataset:", val))
+  # print(paste("Hashtags removed from dataset:", marker))
   
-  # Remove punctuation
-  texts = tm_map(texts, removePunctuation)
-  print(paste("Punctuation removed from dataset:", val))
+  # Replace punctuation with spaces
+  texts = tm_map(texts, replacePunctuation)
+  print(paste("Punctuation replaced with spaces in dataset:", marker))
   
   # Unify 5G variants
   # texts = tm_map(texts, content_transformer(unify_5g))
   texts = tm_map(texts, content_transformer(unify_5g2))
-  print(paste("5g variants (5g! and the likes) were standardised in", val))
+  print(paste("5g variants (5g! and the likes) were standardised in", marker))
   
   # Remove stand-alone numbers to get rind of 19
   # # function source: https://stackoverflow.com/a/23866586/3429115
   remove_alone_nbr = function (x)
     gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
   texts = tm_map(texts, content_transformer(remove_alone_nbr))
-  print(paste("Standalone numbers removed from dataset:", val))
+  print(paste("Standalone numbers removed from dataset:", marker))
   
   # Unify Coronavirus synonyms
   texts = tm_map(texts, content_transformer(unify_coronavirus))
   print(paste("Coronavirus synonyms were unified in",
-              val))
+              marker))
   print(coronavirus_synonyms)
   
   # Removing English stop-words
   texts = tm_map(texts, removeWords, stopwords("english"))
-  print(paste("English stopwords removed from dataset:", val))
+  print(paste("English stopwords removed from dataset:", marker))
   
   # Removing excessive white spaces
   texts = tm_map(texts, stripWhitespace)
-  print(paste("White spaces normalised for dataset:", val))
+  print(paste("White spaces normalised for dataset:", marker))
   
   # Stemming the terms
   texts = tm_map(texts, stemDocument, language = "english")
-  print(paste("Snowball Stemming done for dataset:", val))
+  print(paste("Snowball Stemming done for dataset:", marker))
   
   return(texts)
 }
@@ -295,7 +304,7 @@ plt1 =
              size = 3, vjust = 0.0) +
   ggtitle("Number of non-5G tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N =",
-                           format(nrow(subset(tweets, !five_g), big.mark=",")))) +
+                           format(nrow(subset(tweets, !five_g)), big.mark=","))) +
   ylim(0, 2100000) +
   easy_remove_y_axis() +
   easy_text_size(which = "plot.title", size = 12)
@@ -311,7 +320,7 @@ plt2 =
              size = 3, vjust = 0.0) +
   ggtitle("Number of 5G tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N =",
-                           format(nrow(subset(tweets, five_g),big.mark=",")))) +
+                           format(nrow(subset(tweets, five_g)),big.mark=","))) +
   ylim(0, 2100000) +
   easy_remove_y_axis() +
   easy_text_size(which = "plot.title", size = 12)
@@ -337,7 +346,7 @@ plot_grid(plot_tweets + easy_remove_y_axis(),
           plt3,
           ncol = 1)
 
-rm(plot_tweets, plt1, plt2, plt3)
+rm(plot_tweets, plt1, plt2, plt3, mddl_row)
 ```
 
 Concentrating on 5g Tweets after preprocessing:
@@ -350,14 +359,35 @@ five_g_tweets = tweets %>%
 
 set.seed(13712)
 
-texts = VCorpus(VectorSource(five_g_tweets$text))
-val="all combined"
 
-texts = preprocess_texts(texts, val)
-
-# Building the term-doc matrix
-dtm_tweets = TermDocumentMatrix(texts,
-                                control = list(wordLengths=c(2, Inf)))
+val="all_combined"
+if(RESAVE_TDMs)
+{
+  texts = VCorpus(VectorSource(five_g_tweets$text))
+  texts = preprocess_texts(texts, val)
+  # Building the term-doc matrix
+  dtm_tweets = TermDocumentMatrix(texts,
+                                  control = list(wordLengths=c(2, Inf)))
+  saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
+                                                paste0(val,"_5G", ".rds")))
+  
+  # MEMORY INSUFFICIENT!
+  all_texts = VCorpus(VectorSource(tweets$text))
+  all_texts = preprocess_texts(all_texts, val)
+  # Building the term-doc matrix
+  dtm_all_tweets = TermDocumentMatrix(all_texts,
+                                      control = list(wordLengths=c(2, Inf)))
+  saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
+                                                paste0(val, ".rds")))
+  
+} else {
+  
+  # Load the TDM
+  dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
+                                        paste0(val,"_5G", ".rds")))
+  dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
+                           paste0(val, ".rds")))
+}
 
 m <- as.matrix(dtm_tweets)
 v <- sort(rowSums(m),decreasing=TRUE)
@@ -392,19 +422,36 @@ wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
 # Iterate to produce the word-clouds all of the datasets one by one
 for (val in unique(five_g_tweets$src))
 {
-  data = five_g_tweets %>% filter(src == val)
-  texts = VCorpus(VectorSource(data$text))
-  
-  texts = preprocess_texts(texts, val)
-  
-  # Building the term-doc matrix
-  dtm_tweets = TermDocumentMatrix(texts,
-                                  control = list(wordLengths=c(2, Inf)))
+  if(RESAVE_TDMs)
+  {
+    # texts = VCorpus(VectorSource(subset(five_g_tweets, src == val)$text))
+    # texts = preprocess_texts(texts, val)
+    # # Building the term-doc matrix
+    # dtm_tweets = TermDocumentMatrix(texts,
+    #                                 control = list(wordLengths=c(2, Inf)))
+    # saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
+    #                                               paste0(val,"_5G", ".rds")))
+    # 
+    # # All tweets now
+    # texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
+    # texts = preprocess_texts(texts, val)
+    # # Building the term-doc matrix
+    # dtm_all_tweets = TermDocumentMatrix(texts,
+    #                                     control = list(wordLengths=c(2, Inf)))
+    # saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
+    #                                                   paste0(val, ".rds")))
+  } else {
+    # Loading the term-doc matrices
+    dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
+                                          paste0(val,"_5G", ".rds")))
+    dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
+                                          paste0(val, ".rds")))
+  }
   
   m <- as.matrix(dtm_tweets)
   v <- sort(rowSums(m),decreasing=TRUE)
   d <- data.frame(word = names(v),freq=unname(v))
-  
+    
   plt = 
     ggplot(d[1:50, ],
          aes(x = reorder(word, freq), y = freq)) +
@@ -414,22 +461,17 @@ for (val in unique(five_g_tweets$src))
     ggtitle(paste("Top 50 Frequent Words in", val, "(Excluding Hashtags)"))
   
   print(plt + coord_flip())
-  rm(plt)
   
   print("Pearson Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
-  print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
+  print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .3))
   
-  layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
-  par(mar=rep(0, 4))
-  plot.new()
-  text(x=0.5, y=0.5, val, font = 2, cex = 1)
-  wordcloud(words = d$word, freq = d$freq, min.freq = 3,
-            max.words=150, random.order=FALSE, rot.per=0.35,
-            colors=brewer.pal(8, "Dark2"))
-  
-  # Salience analysis
-  # df = tidy(dtm_tweets)
-  
+  # layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
+  # par(mar=rep(0, 4))
+  # plot.new()
+  # text(x=0.5, y=0.5, val, font = 2, cex = 1)
+  # wordcloud(words = d$word, freq = d$freq, min.freq = 3,
+  #           max.words=150, random.order=FALSE, rot.per=0.35,
+  #           colors=brewer.pal(8, "Dark2"))
 }
 
 ```
@@ -443,5 +485,4 @@ Where:
 \[P(w \cap 5g) = \frac{C(tweets_{w\wedge5g})}{C(tweets_{all})}\]
 \[P(5g) = \frac{C(tweets_{5g})}{C(tweets_{all})}\]
 
-
-
+---
