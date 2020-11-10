@@ -177,7 +177,7 @@ if (file.exists(file.path(".", "usn_statistics.csv")))
 }
 
 # Visualise
-
+# TODO: combine these plots into smaller grid ones
 for (val in unique(usn$src))
 {
   data = usn %>% filter(src == val)
@@ -372,37 +372,50 @@ if(RESAVE_TDMs)
                                                 paste0(val,"_5G", ".rds")))
   
   # MEMORY INSUFFICIENT!
-  # all_texts = VCorpus(VectorSource(tweets$text))
-  # all_texts = preprocess_texts(all_texts, val)
-  # # Building the term-doc matrix
-  # dtm_all_tweets = TermDocumentMatrix(all_texts,
-  #                                     control = list(wordLengths=c(2, Inf)))
-  # saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-  #                                               paste0(val, ".rds")))
+  all_texts = VCorpus(VectorSource(tweets$text))
+  all_texts = preprocess_texts(all_texts, val)
+  # Building the term-doc matrix
+  dtm_all_tweets = TermDocumentMatrix(all_texts,
+                                      control = list(wordLengths=c(2, Inf)))
+  saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
+                                                paste0(val, ".rds")))
   
 } else {
   
   # Load the TDM
   dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
                                         paste0(val,"_5G", ".rds")))
-  # dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-  #                          paste0(val, ".rds")))
+  dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
+                           paste0(val, ".rds")))
 }
 
 m <- as.matrix(dtm_tweets)
 v <- sort(rowSums(m),decreasing=TRUE)
 d <- data.frame(word = names(v),freq=unname(v))
 
-plt = 
-  ggplot(d[1:50, ],
-       aes(x = reorder(word, freq), y = freq)) +
-  geom_bar(stat = "identity") +
-  xlab("frequent words") +
-  #easy_rotate_x_labels(angle = 90) +
-  ggtitle(paste("Top 50 Frequent Words in", val, "(Excluding Hashtags)"))
+vDoc = sort(rowSums(m > 0),decreasing=TRUE)
+dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
 
-print(plt + coord_flip())
-rm(plt)
+p = ggplot(d[1:50, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("occurrences") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "(Excluding Hashtags)")) +
+coord_flip()
+print(p)
+
+p = ggplot(dDoc[1:50, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("tweets") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in ", val, "(Excluding Hashtags)")) +
+coord_flip()
+print(p)
+rm(p)
 
 print("Pearson Correlation among 5g and other terms (threshold = 0.1):")
 print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
@@ -421,8 +434,8 @@ wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
 ```{r, iterating over datasets}
 compute_salience = function(tdm.all, tdm.5g, verbose = F)
 {
-  # print("Sufficing with terms whose sparsity doesn't exceed .999% in all")
-  # tdm.all = removeSparseTerms(x = tdm.all, sparse = .999)
+  print("Sufficing with terms whose sparsity doesn't exceed .999% in all")
+  tdm.all = removeSparseTerms(x = tdm.all, sparse = .999)
   
   if(verbose)
   {
@@ -451,28 +464,30 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
   
   return(cbind(Pr.t, Pr.t.given.5g, Pr.boost))
 }
+```
 
+```{r}
 # Iterate to produce the word-clouds all of the datasets one by one
 for (val in unique(five_g_tweets$src))
 {
   if(RESAVE_TDMs)
   {
-    # texts = VCorpus(VectorSource(subset(five_g_tweets, src == val)$text))
-    # texts = preprocess_texts(texts, val)
-    # # Building the term-doc matrix
-    # dtm_tweets = TermDocumentMatrix(texts,
-    #                                 control = list(wordLengths=c(2, Inf)))
-    # saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-    #                                               paste0(val,"_5G", ".rds")))
-    # 
-    # # All tweets now
-    # texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
-    # texts = preprocess_texts(texts, val)
-    # # Building the term-doc matrix
-    # dtm_all_tweets = TermDocumentMatrix(texts,
-    #                                     control = list(wordLengths=c(2, Inf)))
-    # saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-    #                                                   paste0(val, ".rds")))
+    texts = VCorpus(VectorSource(subset(five_g_tweets, src == val)$text))
+    texts = preprocess_texts(texts, val)
+    # Building the term-doc matrix
+    dtm_tweets = TermDocumentMatrix(texts,
+                                    control = list(wordLengths=c(2, Inf)))
+    saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
+                                                  paste0(val,"_5G", ".rds")))
+
+    # All tweets now
+    texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
+    texts = preprocess_texts(texts, val)
+    # Building the term-doc matrix
+    dtm_all_tweets = TermDocumentMatrix(texts,
+                                        control = list(wordLengths=c(2, Inf)))
+    saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
+                                                      paste0(val, ".rds")))
   } else {
     # Loading the term-doc matrices
     dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
@@ -488,11 +503,11 @@ for (val in unique(five_g_tweets$src))
   d = data.frame(word = names(v),freq=unname(v))
   
   # Tweets counts
-  vDoc = sort(rowSums(m),decreasing=TRUE)
+  vDoc = sort(rowSums(m > 0),decreasing=TRUE)
   dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
     
-  plt1 = 
-    ggplot(d[1:50, ],
+
+    p = ggplot(d[1:50, ],
          aes(x = reorder(word, freq), y = freq)) +
     geom_bar(stat = "identity") +
     xlab("frequent words") +
@@ -500,9 +515,9 @@ for (val in unique(five_g_tweets$src))
     #easy_rotate_x_labels(angle = 90) +
     ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "(Excluding Hashtags)")) +
     coord_flip()
-  
-  plt2 =
-    ggplot(dDoc[1:50, ],
+    print(p)
+
+    p = ggplot(dDoc[1:50, ],
          aes(x = reorder(word, freq), y = freq)) +
     geom_bar(stat = "identity") +
     xlab("frequent words") +
@@ -510,8 +525,9 @@ for (val in unique(five_g_tweets$src))
     #easy_rotate_x_labels(angle = 90) +
     ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in ", val, "(Excluding Hashtags)")) +
     coord_flip()
-  
-  print(plot_grid(plt1, plt2, nrow = 2, ncol = 1))
+    print(p)
+    rm(p)
+
   
   print("Pearson Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .3))
@@ -523,22 +539,21 @@ for (val in unique(five_g_tweets$src))
     geom_bar(stat = "identity")
   
   barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
-          las = 2, cex.names = 0.7,
-          main = "Top 30 terms whose conditional probability to occur in a tweet given '5g' exceed their marginal probability")
+          las = 2, cex.names = 0.7, main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
+  # title(main=ttl, cex.main=0.6)
   
-  # layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
-  # par(mar=rep(0, 4))
-  # plot.new()
-  # text(x=0.5, y=0.5, val, font = 2, cex = 1)
-  # wordcloud(words = d$word, freq = d$freq, min.freq = 3,
-  #           max.words=150, random.order=FALSE, rot.per=0.35,
-  #           colors=brewer.pal(8, "Dark2"))
+  layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
+  par(mar=rep(0, 4))
+  plot.new()
+  text(x=0.5, y=0.5, val, font = 2, cex = 1)
+  wordcloud(words = d$word, freq = d$freq, min.freq = 3,
+            max.words=150, random.order=FALSE, rot.per=0.35,
+            colors=brewer.pal(8, "Dark2"))
   
   # NOTE: just for testing purposes while we can run it on the server
-  if(!stringi::stri_startswith(str = val, fixed = "Feb"))
-    break
+  # if(val == "Feb15")
+  #   break
 }
-
 
 ```
 
