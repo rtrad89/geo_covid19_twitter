@@ -26,6 +26,7 @@ class DataTools:
     def prune_retweets_clean_to_csv(cls,
                                     csv_files: dict,
                                     dirpath: str,
+                                    prefix: str = "original",
                                     only_eng: bool = True):
         if cls.isready_dirpath(dirpath):
             for k, v in csv_files.items():
@@ -35,7 +36,11 @@ class DataTools:
                                         remove_retweets=True)
                 df.text = cls.prerocess_tweets_texts(df.text)
                 # Save the pruned csv under the directory
-                filepath = f"{dirpath}\\original_{k}.csv"
+                if len(k) < 7:
+                    filepath = f"{dirpath}\\{prefix}_{k}.csv"
+                else:
+                    # We are using an older dataset
+                    filepath = f"{dirpath}\\old_{prefix}_{k}.csv"
 
                 if not v[1]:
                     # Since we miss some columns here, we add them
@@ -105,9 +110,9 @@ class DataTools:
                        remove_retweets: bool) -> pd.DataFrame:
         if DataTools.path_exists(csv_fpath):
             fld = "retweet_id" if hydrator_file else "retweet_or_quote_id"
-            schema = ["id", "lang", "created_at", fld,
-                      "user_screen_name", "user_followers_count",
-                      "user_friends_count",
+            schema = ["id", "lang", "created_at", fld, "favorite_count",
+                      "retweet_count", "user_screen_name",
+                      "user_followers_count", "user_friends_count",
                       "text"]
 
             if already_pruned:
