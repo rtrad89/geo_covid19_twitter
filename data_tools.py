@@ -40,7 +40,7 @@ class DataTools:
                     filepath = f"{dirpath}\\{prefix}_{k}.csv"
                 else:
                     # We are using an older dataset
-                    filepath = f"{dirpath}\\old_{prefix}_{k}.csv"
+                    filepath = f"{dirpath}\\{prefix}_{k}_old.csv"
 
                 if not v[1]:
                     # Since we miss some columns here, we add them

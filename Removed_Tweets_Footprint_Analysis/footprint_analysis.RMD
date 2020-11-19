@@ -33,7 +33,6 @@ theme_update(plot.title = element_text(hjust = 0.5),
              plot.subtitle = element_text(hjust = 0.5))
           
 # Control variable
-RECOMBINE = FALSE
 DIR_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "pruned")
@@ -48,60 +47,63 @@ FPATH = file.path(DIR_PATH, FNAME)
 
 Loading the data:
 
-```{r, make and load the data after skipping NA lables}
-if (RECOMBINE)
+```{r functions}
+compile_source = function(fp, suff = "")
 {
-  FNAME.oFeb01 = "old_original_0200201.csv"
-  FPATH.oFeb01 = file.path(DIR_PATH, FNAME.oFeb01)
-  
-  FNAME.Feb01 = "original_200201.csv"
-  FPATH.Feb01 = file.path(DIR_PATH, FNAME.Feb01)
-  
-  FNAME.oMar01 = "old_original_0200301.csv"
-  FPATH.oMar01 = file.path(DIR_PATH, FNAME.oMar01)
-  
-  FNAME.Mar01 = "original_200301.csv"
-  FPATH.Mar01 = file.path(DIR_PATH, FNAME.Mar01)
-  
-  fpaths = c(FPATH.oFeb01, FPATH.Feb01, FPATH.oMar01, FPATH.Mar01)
-  
-  twts = tibble::tibble()
-  for (fp in fpaths)
-  {
-    temp = read_csv(fp,
-                    col_types = cols(id = col_character()))
-    temp$src = paste0(
+  return(
+  paste0(
       month.abb[as.numeric(
       substr(stringr::str_extract(basename(fp), pattern = "\\d+"), 3, 4))
       ],
-      substr(stringr::str_extract(basename(fp), pattern = "\\d+"), 5, 6)
+      substr(stringr::str_extract(basename(fp), pattern = "\\d+"), 5, 6),
+      suff
     )
-  
-  if(nrow(tweets) == 0)
-    tweets = temp
-  else
-    tweets = rbind(tweets, temp)
-  
-  rm(temp)
-  }
-  
-  # Drop tweets where label is NA
-  tweets = tweets[!is.na(tweets$five_g),]
-  
-
-  tweets$src = factor(x = tweets$src,
-                      ordered = TRUE,
-                      levels = c("Feb01", "Feb15", "Mar01", "Mar15",
-                                 "Apr01", "Apr15","May01"))
-  
-  # Save tweets to disk
-  write_csv(tweets, file = file.path(DIR_PATH, FNAME))
-} else {
-  tweets = read_csv(FPATH, col_types = cols(
-    id = col_character(),
-    src = col_factor(ordered = TRUE,
-                     levels = c("Feb01", "Feb15", "Mar01", "Mar15",
-                                 "Apr01", "Apr15","May01")))
-    )
+  )
 }
+
+
+load_month_tweets = function(ofp, fp)
+{
+  o.ds = read_csv(ofp, col_types = cols(id = col_character()))
+  o.ds$src = compile_source(ofp, suff = "older")
+  
+  
+  ds = read_csv(fp, col_types = cols(id = col_character()))
+  ds$src = compile_source(fp)
+  
+  tweets = rbind(o.ds, ds)
+  rm(o.ds, ds)
+  
+  return(tweets)
+}
+
 ```
+
+
+```{r, make and load the data}
+
+FNAME.oFeb01 = "original_200201o_old.csv"
+FPATH.oFeb01 = file.path(DIR_PATH, FNAME.oFeb01)
+
+FNAME.Feb01 = "original_200201.csv"
+FPATH.Feb01 = file.path(DIR_PATH, FNAME.Feb01)
+
+FNAME.oMar01 = "original_200301o_old.csv"
+FPATH.oMar01 = file.path(DIR_PATH, FNAME.oMar01)
+
+FNAME.Mar01 = "original_200301.csv"
+FPATH.Mar01 = file.path(DIR_PATH, FNAME.Mar01)
+
+
+twts = tibble::tibble()
+
+# Read February datasets
+feb.tweets = load_month_tweets(FPATH.oFeb01, FPATH.Feb01)
+```
+
+
+```{r data analysis}
+
+
+```
+

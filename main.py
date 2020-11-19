@@ -37,9 +37,9 @@ def main():
         #                      "tweets_2020-04-15.csv"), True)
         # Add the older tweets
         # Keys are 7 chars long and for older datasets
-        dpaths["0200201"] = ((f"{datasets_folder}\\ids_2020-02-01\\"
+        dpaths["200201o"] = ((f"{datasets_folder}\\ids_2020-02-01\\"
                               "tweets_20200201.csv"), True)
-        dpaths["0200301"] = ((f"{datasets_folder}\\ids_2020-03-01\\"
+        dpaths["200301o"] = ((f"{datasets_folder}\\ids_2020-03-01\\"
                              "tweets_20200301.csv"), True)
         try:
             DataTools.prune_retweets_clean_to_csv(csv_files=dpaths,
