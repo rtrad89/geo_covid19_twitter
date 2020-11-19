@@ -1,0 +1,71 @@
+---
+title: "Dominant Terms Change Analysis"
+author: "RTRAD"
+date: "10/11/2020"
+output: 
+  html_document: 
+    fig_width: 10
+    fig_height: 10
+    number_sections: yes
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE,
+                      echo = FALSE,
+                      fig.align = "center",
+                      dev = "svg")
+
+# Libraries
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(ggeasy)
+library(cowplot)
+
+theme_set(theme_linedraw())
+theme_update(plot.title = element_text(hjust = 0.5),
+             plot.subtitle = element_text(hjust = 0.5))
+          
+# Control variable
+DIR_FREQ_PATH = file.path("..", "..", "..",
+                     "Datasets","twitter-sars-cov-2",
+                     "freqterms")
+FNAME = "freq_terms.rds"
+FREQ_THRESHOLD = 5 # How many top terms to consider
+```
+
+This analysis will tackle the change of dominant terms across the months Feb through May 2020, with a cadence of 2 weeks.
+
+```{r Loading data}
+ds.freq = readRDS(file = file.path(DIR_FREQ_PATH, FNAME))
+ds.freq$src =  factor(x = ds.freq$src, ordered = TRUE,
+                      levels = c("Feb01", "Feb15", "Mar01", "Mar15",
+                                 "Apr01", "Apr15","May01"))
+```
+
+```{r keeping top N}
+nfreq = ds.freq %>%
+  group_by(src) %>%
+  top_n(n = FREQ_THRESHOLD, wt = freq) %>%
+  ungroup
+
+# Now after getting the most frequent 50 terms in each dataset, we reacquire then from the original dataset
+nfreq = ds.freq[ds.freq$word %in% nfreq$word, ]
+
+# Since the sizes of the datasets are different, we need to use relative measures. Let's use percentages
+# TODO: maybe find a better way to calculate the percentages instead of interim joins and column creations?
+absolutes = nfreq[nfreq$word=="5g", c("src", "freq")]
+names(absolutes) =c("src", "N")
+
+nfreq = merge(x = absolutes, y = nfreq) %>%
+  mutate(percentage = 100*freq/N)
+```
+
+```{r visualising}
+ggplot(data = nfreq, aes(y = word, x=percentage, fill=src)) +
+  geom_bar(stat="identity", position = "fill")
+# TODO: flip legend order!
+```
+
