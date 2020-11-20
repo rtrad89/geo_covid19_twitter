@@ -33,7 +33,7 @@ DIR_FREQ_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "freqterms")
 FNAME = "freq_terms.rds"
-FREQ_THRESHOLD = 5 # How many top terms to consider
+FREQ_THRESHOLD = 15 # How many top terms to consider
 ```
 
 This analysis will tackle the change of dominant terms across the months Feb through May 2020, with a cadence of 2 weeks.
@@ -61,11 +61,46 @@ names(absolutes) =c("src", "N")
 
 nfreq = merge(x = absolutes, y = nfreq) %>%
   mutate(percentage = 100*freq/N)
+
+# Append the total percentages of terms in all 7 datasets combined
+counts = nfreq %>%
+  group_by(src, word) %>%
+  summarise(s1 = sum(freq)) %>%
+  ungroup %>%
+  group_by(word) %>%
+  summarise(all_counts = sum(s1)) %>%
+  ungroup
+
+counts$tot_percentage = 100 * counts$all_counts / sum(absolutes$N)
+
+nfreq = merge(x = nfreq, y = counts[, c("word", "tot_percentage")])
+rm(absolutes, counts)
+
 ```
 
-```{r visualising}
-ggplot(data = nfreq, aes(y = word, x=percentage, fill=src)) +
-  geom_bar(stat="identity", position = "fill")
-# TODO: flip legend order!
+In the following graph, we will set a focus on how the dominant terms evolve across datasets. The approach is simple: We look for the top `r FREQ_THRESHOLD` most frequent terms in each dataset of the seven we have. It is more interesting to regard frequency as how many tweets a term appears in, i.e. if a terms frequency is six, then the terms appears in six tweets, regardless of how many times it is repeated in a tweet.
+
+Then, we deem these seven sets of top frequent terms as the interesting ones to track. Afterwards, because the datasets vary heavily in size, we use percentages as surrogates for absolute counts. We measure the percentages of tweets each term covers in each dataset and compose a 100% bar, as seen below, which has its colours allocated according to the dominance of the term in each dataset.
+
+The plot below is ordered according to the global dominance of terms, which is measured in percentages and put in parentheses. For example, because 5G appears in all 5G tweets across the seven datasets, the global percentage thereof is 100.
+
+```{r visualising, fig.height=15}
+nfreq %>%
+  mutate(source = factor(nfreq$src, levels = rev(levels(nfreq$src)))) %>%
+  ggplot(data=.,
+         aes(y = reorder(
+           paste0(word, " (",round(tot_percentage,1),"%)")
+           , tot_percentage),
+             x=percentage, fill=source)) +
+  geom_bar(stat="identity", position = "fill", colour = "black") +
+  xlab("occurring percentage of terms in releavant tweet datasets") +
+  ylab("word stem") +
+  ggtitle(paste("Percentage compositions of the most frequent",
+                FREQ_THRESHOLD,
+                "terms in each 5G tweets across datasets and how they evolve"),
+          subtitle = "Numbers in parantheses are total percentage of tweets containing the term in all datasets combined") +
+  guides(fill = guide_legend(reverse = T)) +
+  scale_fill_manual(values = c("#381A15","#5E3341","#6C5979","#5489A5",
+                               "#36B8B0","#77E197","#E4FE75"))
 ```
 
