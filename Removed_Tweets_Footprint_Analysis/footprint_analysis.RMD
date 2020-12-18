@@ -1,5 +1,6 @@
 ---
 title: "Deleted Tweets Footprint Analysis"
+pagetitle: "Footprint analysis"
 author: "RTRAD"
 date: "18/11/2020"
 output: 
@@ -66,13 +67,29 @@ load_month_tweets = function(ofp, fp)
 {
   o.ds = read_csv(ofp, col_types = cols(id = col_character()))
   o.ds$src = compile_source(ofp, suff = "older")
-  
+   
   
   ds = read_csv(fp, col_types = cols(id = col_character()))
   ds$src = compile_source(fp)
   
+  # Remove surplus unmatched columns due to different hydration schemas
+  for(c in setdiff(names(ds), names(o.ds)))
+  {
+    ds[, c] = NULL
+  }
+  for(c in setdiff(names(o.ds), names(ds)))
+  {
+    o.ds[, c] = NULL
+  }
+  
+  
   tweets = rbind(o.ds, ds)
+  
+  # Convert the srcs to ordered factors
+  order = c(o.ds$src[1], ds$src[1])
   rm(o.ds, ds)
+  
+  tweets$src = factor(x = tweets$src, levels = order, ordered = T)
   
   return(tweets)
 }
@@ -94,16 +111,75 @@ FPATH.oMar01 = file.path(DIR_PATH, FNAME.oMar01)
 FNAME.Mar01 = "original_200301.csv"
 FPATH.Mar01 = file.path(DIR_PATH, FNAME.Mar01)
 
-
-twts = tibble::tibble()
-
 # Read February datasets
 feb.tweets = load_month_tweets(FPATH.oFeb01, FPATH.Feb01)
+mar.tweets = load_month_tweets(FPATH.oMar01, FPATH.Mar01)
 ```
 
+Two hydrations were carried out in July 2020 in October 2020. As a result, we have Feb01 and Mar01 hydrated in July 4-5 months after the original publishing, and in October (7-8 months), with a time gap of 3 months between the two datasets. 
 
-```{r data analysis}
+Due to hydration issues, some tweets which failed to load in a previous hydration can show up in the newer hydration. As a preprocessing step, we proceed by making the second hydration strictly a subset of the former one, that is, removing tweets who show up in the second hydration despite using the same tweets' ids file.
+
+```{r}
+feb_excluded = setdiff(subset(feb.tweets, src=="Feb01", select=id),
+                      subset(feb.tweets, src=="Feb01older", select=id))
+
+feb.tweets = feb.tweets %>%
+  filter(!id %in% feb_excluded$id)
 
 
+mar_excluded = setdiff(subset(mar.tweets, src=="Mar01", select=id),
+                      subset(mar.tweets, src=="Mar01older", select=id))
+
+mar.tweets = mar.tweets %>%
+  filter(!id %in% mar_excluded$id)
 ```
+
+From newer February hydration, `r nrow(feb_excluded)` tweets were excluded. `r nrow(mar_excluded)` were removed from March's second hydration. Doing so gives us a later hydration that is a subset of the former, and we analyse the impact of deleted tweets more soundly thus.
+
+```{r data analysis, fig.width=15, fig.height=5}
+# Visualise the deleted tweets
+par(mfrow=c(1,2))
+febtab = table(feb.tweets$src)
+barplot(febtab, col = brewer.pal(2, "Accent"),  main = "Difference in Tweets Counts")
+martab = table(mar.tweets$src)
+barplot(martab, col = brewer.pal(2, "Accent"), main = "Difference in Tweets Counts")
+removed = c(unname(febtab[1] - febtab[2]), unname(martab[1]-martab[2]))
+names(removed) = c("February", "March")
+par(mfrow=c(1,1))
+barplot(removed, col = brewer.pal(2, "Dark2"), main = "Removed Tweets")
+```
+
+We see that there are far more removed tweets for March the 1^st^ (`r round(unname(100*(martab[1] - martab[2]) / martab[1]),2)`%) than February the 1^st^ (`r round(unname(100*(febtab[1] - febtab[2]) / febtab[1]),2)`%).
+
+```{r figuring out what got deleted}
+feb.deleted_ids = setdiff(subset(feb.tweets, src=="Feb01older", select=id),
+                      subset(feb.tweets, src=="Feb01", select=id))
+
+feb.deleted = feb.tweets %>%
+  filter(id %in% feb.deleted_ids$id)
+
+mar.deleted_ids = setdiff(subset(mar.tweets, src=="Mar01older", select=id),
+                      subset(mar.tweets, src=="Mar01", select=id))
+mar.deleted = mar.tweets %>%
+  filter(id %in% mar.deleted_ids$id)
+```
+
+```{r annotating 5G tweets like in our python system with REs}
+# Annotate them with 5G labels using KW search
+feb.deleted$five.g = grepl(pattern = "\\b5g\\b", x = feb.deleted$text,
+                           ignore.case = TRUE, fixed = FALSE)
+
+mar.deleted$five.g = grepl(pattern = "\\b5g\\b", x = mar.deleted$text,
+                           ignore.case = TRUE, fixed = FALSE)
+```
+
+Setting a focus on the deleted tweets' 5G content, we see that `r 100*round(nrow(subset(feb.deleted, feb.deleted$five.g == TRUE))/nrow(feb.deleted), 4)`% or February 01 tweets speak about 5G, and `r 100*round(nrow(subset(mar.deleted, mar.deleted$five.g == TRUE))/nrow(mar.deleted), 4)`% of March 01 too. This is not far from 0.13% general percentage in our seven datasets. This means that the deletion was not biased against tweets which discuss 5G.
+
+Consequently, to assume that absent tweets are deleted is too strong:
+
+- We don't know if the absent tweets are deleted, or simply missed by twitter API and the hydration process. This is a concern after I discovered that later hydrations are not a subset of earlier ones, which means that earlier hydration procedures simply missed/dropped some tweets for some reason
+- For really deleted tweets, we don't know the cause of deletion: is it disinformation or else? Or by whom: twitter or the user?
+
+It's better to put this research trend aside due to the multiple uncontrollable variables, which influences the results and interpretations.
 

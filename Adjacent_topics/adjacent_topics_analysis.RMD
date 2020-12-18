@@ -1,0 +1,292 @@
+---
+title: "Adjacent Topics to 5G COVID-19 Tweets"
+author: "RTRAD"
+date: "10/11/2020"
+output: 
+  html_document: 
+    fig_width: 10
+    fig_height: 10
+    number_sections: yes
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE,
+                      echo = FALSE,
+                      fig.align = "center",
+                      dev = "svg")
+
+# Libraries
+library(readr)
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(ggeasy)
+library(tm)
+library(wordcloud)
+library(textclean)
+library(cowplot)
+
+theme_set(theme_linedraw())
+theme_update(plot.title = element_text(hjust = 0.5),
+             plot.subtitle = element_text(hjust = 0.5))
+          
+# Control variable
+RECOMBINE = FALSE
+DIR_PATH = file.path("..", "..", "..",
+                     "Datasets","twitter-sars-cov-2",
+                     "annotated")
+FNAME = "annotated_tweets.csv"
+FPATH = file.path(DIR_PATH, FNAME)
+
+
+RESAVE_TDMs = TRUE  # TRUE takes a LOT of time!
+DIR_TDMs_PATH = file.path("..", "..", "..",
+                     "Datasets","twitter-sars-cov-2",
+                     "preprocessed_tdms")
+```
+
+Loading the data:
+
+```{r, make and load the data after skipping NA lables}
+if (RECOMBINE)
+{
+  FNAME.Feb01 = "annotated_original_200201.csv"
+  FPATH.Feb01 = file.path(DIR_PATH, FNAME.Feb01)
+  
+  FNAME.Feb15 = "annotated_original_200215.csv"
+  FPATH.Feb15 = file.path(DIR_PATH, FNAME.Feb15)
+  
+  FNAME.Mar01 = "annotated_original_200301.csv"
+  FPATH.Mar01 = file.path(DIR_PATH, FNAME.Mar01)
+  
+  FNAME.Apr01 = "annotated_original_200401.csv"
+  FPATH.Apr01 = file.path(DIR_PATH, FNAME.Apr01)
+  
+  FNAME.May01 = "annotated_original_200501.csv"
+  FPATH.May01 = file.path(DIR_PATH, FNAME.May01)
+
+  FNAME.Mar15 = "annotated_original_200315.csv"
+  FPATH.Mar15 = file.path(DIR_PATH, FNAME.Mar15)
+  
+  FNAME.Apr15 = "annotated_original_200415.csv"
+  FPATH.Apr15 = file.path(DIR_PATH, FNAME.Apr15)
+  
+  fpaths = c(FPATH.Feb01, FPATH.Feb15, FPATH.Mar01, FPATH.Mar15,
+             FPATH.Apr01, FPATH.Apr15, FPATH.May01)
+  
+  tweets = tibble::tibble()
+  for (fp in fpaths)
+  {
+    temp = read_csv(fp,
+                    col_types = cols(id = col_character()))
+    temp$src = paste0(
+      month.abb[as.numeric(
+      substr(stringr::str_extract(basename(fp), pattern = "\\d+"), 3, 4))
+      ],
+      substr(stringr::str_extract(basename(fp), pattern = "\\d+"), 5, 6)
+    )
+  
+  if(nrow(tweets) == 0)
+    tweets = temp
+  else
+    tweets = rbind(tweets, temp)
+  
+  rm(temp)
+  }
+  
+  # Drop tweets where label is NA
+  tweets = tweets[!is.na(tweets$five_g),]
+  
+
+  tweets$src = factor(x = tweets$src,
+                      ordered = TRUE,
+                      levels = c("Feb01", "Feb15", "Mar01", "Mar15",
+                                 "Apr01", "Apr15","May01"))
+  
+  # Save tweets to disk
+  write_csv(tweets, file = file.path(DIR_PATH, FNAME))
+} else {
+  tweets = read_csv(FPATH, col_types = cols(
+    id = col_character(),
+    src = col_factor(ordered = TRUE,
+                     levels = c("Feb01", "Feb15", "Mar01", "Mar15",
+                                 "Apr01", "Apr15","May01")))
+    )
+}
+```
+
+Some users annotate their tweets with labels which represent the ulterior themes/topics. That valuable annotation is represented as what's called hashtags, and it would be very interesting to analyse and explore what topics are being discussed in COVID tweets.
+
+
+In our combined `r round(nrow(tweets)/1000000, 1)`m tweets, there are `r round(nrow(subset(tweets, !is.na(hashtags)))/1000000, 1)`m annotated tweets whose hashtags we shall examine in a holistic fashion and then in individual data sets.
+
+```{r holistic hashtags analysis}
+tweets = tweets %>%
+  select(hashtags, five_g) %>%
+  filter(!is.na(hashtags))
+```
+
+```{r functions for preprocessing}
+# Unify coronavirus synonyms
+# Pay attention that the order is critical
+coronavirus_synonyms = c("corona virus",
+                         "covid 19",
+                         "covid19",
+                         "coronavirus19",
+                         "covid",
+                         "corona ",
+                         "corona",
+                         "sarscov2")
+unify_coronavirus = function(x)
+{
+  x2 = stringi::stri_replace_all_fixed(str = x,
+                                  coronavirus_synonyms,
+                                  "coronavirus",
+                                  vectorise_all = F)
+  
+  x2 = stringi::stri_replace_all_fixed(str = x2,
+                                  "virusvirus",
+                                  "virus",
+                                  vectorise_all = F)
+  
+  stringi::stri_replace_all_regex(str = x2,
+                                  pattern = "\\bcoronavirus[\\w]+\\b",
+                                  replacement = "coronavirus",
+                                  vectorize_all = F)
+}
+
+
+
+unify_5g2 = function(x) gsub("\\b5g\\b", " 5g ", x)
+
+replacePunctuationAggressively = content_transformer(function(x) {
+  return (gsub("[^[:alnum:]]"," ", x))
+  })
+
+removeRedundantHashtags = function(x)
+{
+  # This has to be run while respecting tweets' document boundaries
+  # IT CANNOT BE USED WHEN INTEGRATING ALL THE TEXTS IN ONE DOCUMENT
+  words = unlist(strsplit(x, split = " "))
+  return(paste(unique(words), collapse = " "))
+  
+}
+
+
+preprocess_hashtags = function(texts, marker)
+{
+  # Lower-casing
+  texts  = tm_map(texts, content_transformer(tolower))
+  print(paste("Lowercasing done for dataset:", marker))
+  
+  # Replace punctuation with spaces
+  texts = tm_map(texts, replacePunctuationAggressively)
+  print(paste("Punctuation replaced with spaces in dataset:", marker))
+  
+  # Unify 5G variants
+  # texts = tm_map(texts, content_transformer(unify_5g))
+  texts = tm_map(texts, content_transformer(unify_5g2))
+  print(paste("5g variants (5g! and the likes) were standardised in", marker))
+  
+  # Unify Coronavirus synonyms
+  texts = tm_map(texts, content_transformer(unify_coronavirus))
+  print(paste("Coronavirus synonyms, redundant 'virus' and suffixes were unified in",
+              marker))
+  print(coronavirus_synonyms)
+  
+  # Removing excessive white spaces
+  texts = tm_map(texts, stripWhitespace)
+  print(paste("White spaces normalised for dataset:", marker))
+
+  
+  # Stemming the terms
+  texts = tm_map(texts, stemDocument, language = "english")
+  print(paste("Snowball Stemming done for dataset:", marker))
+  
+  # #Remove duplicate hashtags in a tweet
+  # texts = tm_map(texts, content_transformer(removeRedundantHashtags))
+  # print(paste("Redundant hashtags per tweet removed in dataset:", marker))
+  
+  return(texts)
+}
+
+```
+
+
+```{r building the TDM for non-5G}
+val = "non-5G"
+if(RESAVE_TDMs)
+{
+# Build a TDM using the hashtags for non-5G
+htgs = VCorpus(VectorSource(subset(x = tweets,
+                                   subset = !five_g,
+                                   select = hashtags))
+               )
+htgs = preprocess_hashtags(htgs, val)
+# Building the term-doc matrix
+dtm_htgs = TermDocumentMatrix(htgs,
+                              control = list(wordLengths=c(2, Inf)))
+saveRDS(object = dtm_htgs, file = file.path(DIR_TDMs_PATH,
+                                            paste0("Adjacent_Topics_1doc_",val,
+                                                ".rds")))
+} else {
+dtm_htgs = readRDS(file = file.path(DIR_TDMs_PATH,
+                                    paste0("Adjacent_Topics_1doc_",val,
+                                           ".rds"))
+                   )
+}
+```
+
+```{r unwrapping the TDMs for inspection}
+m = as.matrix(dtm_htgs)
+
+# Corpus counts
+v = sort(rowSums(m),decreasing=TRUE)
+d = data.frame(word = names(v),freq=unname(v))
+
+# # Tweets counts
+# vDoc = sort(rowSums(m > 0),decreasing=TRUE)
+# dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
+
+p = ggplot(d[2:51, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("occurrences") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "Besides 'Coronavirus'")) +
+coord_flip()
+print(p)
+
+# p = ggplot(dDoc[2:51, ],
+#      aes(x = reorder(word, freq), y = freq)) +
+# geom_bar(stat = "identity") +
+# xlab("frequent words") +
+# ylab("tweets") +
+# #easy_rotate_x_labels(angle = 90) +
+# ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val)) +
+# coord_flip()
+# print(p)
+# rm(p)
+# 
+# print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
+# print(findAssocs(dtm_htgs, terms = c("coronavirus"), corlimit = .01))
+
+set.seed(13712)
+
+# 
+# layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
+# par(mar=rep(0, 4))
+# plot.new()
+# text(x=0.5, y=0.5, val, font = 2, cex = 1)
+wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
+          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+
+```
+
+
+# Supplying the Missing Topics for Untagged Tweets
+We have 60% of tweets unlabelled. We shall use the state-of-the-art statistical modelling in order to infer the topical structures of these tweets via BTM. #TODO
+

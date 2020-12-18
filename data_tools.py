@@ -110,10 +110,10 @@ class DataTools:
                        remove_retweets: bool) -> pd.DataFrame:
         if DataTools.path_exists(csv_fpath):
             fld = "retweet_id" if hydrator_file else "retweet_or_quote_id"
-            schema = ["id", "lang", "created_at", fld, "favorite_count",
+            schema = ["id", "created_at", fld, "favorite_count",
                       "retweet_count", "user_screen_name",
                       "user_followers_count", "user_friends_count",
-                      "text"]
+                      "text", "hashtags"]
 
             if already_pruned:
                 # Then retweets are removed

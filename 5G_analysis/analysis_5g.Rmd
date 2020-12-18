@@ -238,7 +238,10 @@ set.seed(13712)
 preprocess_texts = function(texts, marker)
 {
   # Communicate what basic preprocessing did:
-  print(paste("URLs, smilies, emojies and mentions had been removed from dataset:", marker))
+  print(paste(
+    "URLs, smilies, emojies and mentions had been removed from dataset:",
+    marker))
+  
   # Some cleaning:
   
   # Lower-casing
@@ -258,7 +261,7 @@ preprocess_texts = function(texts, marker)
   texts = tm_map(texts, content_transformer(unify_5g2))
   print(paste("5g variants (5g! and the likes) were standardised in", marker))
   
-  # Remove stand-alone numbers to get rind of 19
+  # Remove stand-alone numbers to get rid of 19
   # # function source: https://stackoverflow.com/a/23866586/3429115
   remove_alone_nbr = function (x)
     gsub('\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*', " ", x, perl=TRUE)
