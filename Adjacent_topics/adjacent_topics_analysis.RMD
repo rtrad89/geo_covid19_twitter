@@ -212,8 +212,10 @@ preprocess_hashtags = function(texts, marker)
   return(texts)
 }
 
-vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
-                        sparsity_threshold = NA, is5G, corrterm = "coronavirus")
+vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
+                        rds_prefname = "Adjacent_Topics",
+                        sparsity_threshold = NA,
+                        corrterm = "coronavirus")
 {
   if(RESAVE_TDMs)
   {
@@ -225,12 +227,12 @@ vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
     dtm_htgs = TermDocumentMatrix(htgs,
                                   control = list(wordLengths=c(2, Inf)))
     saveRDS(object = dtm_htgs, file = file.path(DIR_TDMs_PATH,
-                                                paste0(rds_prefname, "_",
-                                                       val, ".rds")))
+                                                paste0(rds_prefname, "_", val,
+                                                       "_5G_", is5G,".rds")))
     } else {
     dtm_htgs = readRDS(file = file.path(DIR_TDMs_PATH,
-                                        paste0(rds_prefname, "_",
-                                               val, ".rds")))
+                                        paste0(rds_prefname, "_", val,
+                                               "_5G_", is5G,".rds")))
   }
   # Save the sparse dtm matrix for statistical purposes
   ret = dtm_htgs
@@ -241,6 +243,8 @@ vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
     # Due to high memory requirements, we have to remove some sparse terms
     # Normally this does not remove significant relations we hope to find
     dtm_htgs = removeSparseTerms(dtm_htgs, sparsity_threshold)
+    print(paste("NOTE: sparsity pruned, less than",
+                100*sparsity_threshold, "% is kept"))
   }
   
   if(RESAVE_TDMs)
@@ -258,11 +262,12 @@ vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
     rm(m, vDoc)
     saveRDS(object = dDoc, file = file.path(DIR_TDMs_PATH,
                                             paste0(rds_prefname, "_dDoc_",
-                                                   val, ".rds")))
+                                                   val,
+                                                    "_5G_", is5G,".rds")))
   } else {
     dDoc = readRDS(file = file.path(DIR_TDMs_PATH,
                                     paste0(rds_prefname, "_dDoc_",val,
-                                           ".rds")))
+                                            "_5G_", is5G,".rds")))
   }
 
   # p = ggplot(d[2:51, ],
@@ -306,7 +311,13 @@ vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
             colors=brewer.pal(8, "Dark2"))
   
   # Return a vector of the DTMs, before and after sparsity removal
-  return(list(sparse=ret, pruned=dtm_htgs))
+  return(list(sparse=ret, pruned=dtm_htgs, termfreqs=dDoc))
+}
+
+visualise_evolution = function(terms_frequencies)
+{
+  # Reuse the code we have developed before for mere terms on the hashtags:
+  
 }
 ```
 
@@ -315,7 +326,7 @@ vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
 tweets.n5g = subset(x = tweets, subset = !five_g)
 tweets.5g = subset(x = tweets, subset = five_g)
 # If tweets are to be retained, comment the following
-# rm(tweets)
+rm(tweets)
 ```
 
 
@@ -323,7 +334,7 @@ tweets.5g = subset(x = tweets, subset = five_g)
 
 ```{r building the TDM for non-5G}
 dtm_htgs = vsm_modeller(data = tweets.n5g, RESAVE_TDMs = RESAVE_TDMs,
-                        val = "non-5G", rds_prefname = "Adjacent_Topics",
+                        val = "ALL",
                         sparsity_threshold = 0.999, is5G = FALSE)
 ```
 
@@ -338,7 +349,7 @@ The same thing is applied to 5G tweets, but without removing sparsity as there i
 
 ```{r building the TDM for 5G}
 dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
-                        val = "5G", rds_prefname = "Adjacent_Topics",
+                        val = "ALL",
                         sparsity_threshold = NA, is5G = TRUE)
 ```
 
@@ -346,10 +357,38 @@ The current term-document matrix holds `r nrow(dtm_htgs[1])` terms in `r ncol(dt
 
 # A Drill-Down on Each Dataset for Evolvement
 
+We will run the same analysis on each dataset, studying non-5G tweets first then 5G.
+
 ```{r}
-for(val in unique(tweets$src))
+freq.n5g = data.frame()
+freq.5g = data.frame()
+
+for(val in unique(tweets.n5g$src))
 {
-  print(paste("TODO", val))
+  print(paste("Studying", val, "dataset..."))
+  print("Non-5G:")
+  # Filter the dataset and load it into our modeller
+  termfreq.n5g = vsm_modeller(data = subset(tweets.n5g, subset = src==val),
+                              RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = FALSE,
+                              sparsity_threshold = 0.999)[3]$termfreqs
+  print("5G:")
+  termfreq.5g = vsm_modeller(data = subset(tweets.5g, subset = src==val),
+                             RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = TRUE,
+                             sparsity_threshold = NA)[3]$termfreqs
+  
+  # Append the freqs to the global evolution matrix
+  termfreq.n5g[, "src"] = val
+  if(nrow(freq.n5g) == 0)
+    freq.n5g = termfreq.n5g
+  else
+    freq.n5g = rbind(freq.n5g, termfreq.n5g)
+  
+  termfreq.5g[, "src"] = val
+  if(nrow(freq.5g) == 0)
+    freq.5g = termfreq.5g
+  else
+    freq.5g = rbind(freq.5g, termfreq.5g)
+  
 }
 
 ```
@@ -358,4 +397,8 @@ for(val in unique(tweets$src))
 
 # Supplying the Missing Topics for Untagged Tweets?
 We have 60% of tweets unlabelled. We shall use the state-of-the-art statistical modelling in order to infer the topical structures of these tweets via BTM.
+
+```{r}
+print(freq.5g)
+```
 
