@@ -212,196 +212,144 @@ preprocess_hashtags = function(texts, marker)
   return(texts)
 }
 
+vsm_modeller = function(data, RESAVE_TDMs, val, rds_prefname,
+                        sparsity_threshold = NA, is5G, corrterm = "coronavirus")
+{
+  if(RESAVE_TDMs)
+  {
+    # Build a TDM using the hashtags
+    htgs = VCorpus(VectorSource(data$hashtags)
+                   )
+    htgs = preprocess_hashtags(htgs, val)
+    # Building the term-doc matrix
+    dtm_htgs = TermDocumentMatrix(htgs,
+                                  control = list(wordLengths=c(2, Inf)))
+    saveRDS(object = dtm_htgs, file = file.path(DIR_TDMs_PATH,
+                                                paste0(rds_prefname, "_",
+                                                       val, ".rds")))
+    } else {
+    dtm_htgs = readRDS(file = file.path(DIR_TDMs_PATH,
+                                        paste0(rds_prefname, "_",
+                                               val, ".rds")))
+  }
+  # Save the sparse dtm matrix for statistical purposes
+  ret = dtm_htgs
+  
+  # Remove sparsity if desired
+  if(!is.na(sparsity_threshold))
+  {
+    # Due to high memory requirements, we have to remove some sparse terms
+    # Normally this does not remove significant relations we hope to find
+    dtm_htgs = removeSparseTerms(dtm_htgs, sparsity_threshold)
+  }
+  
+  if(RESAVE_TDMs)
+  {
+    m = as.matrix(dtm_htgs)
+    
+    # # Corpus counts
+    # v = sort(rowSums(m),decreasing=TRUE)
+    # d = data.frame(word = names(v),freq=unname(v))
+    
+    # Tweets counts
+    vDoc = sort(rowSums(m > 0),decreasing=TRUE)
+    dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
+    
+    rm(m, vDoc)
+    saveRDS(object = dDoc, file = file.path(DIR_TDMs_PATH,
+                                            paste0(rds_prefname, "_dDoc_",
+                                                   val, ".rds")))
+  } else {
+    dDoc = readRDS(file = file.path(DIR_TDMs_PATH,
+                                    paste0(rds_prefname, "_dDoc_",val,
+                                           ".rds")))
+  }
+
+  # p = ggplot(d[2:51, ],
+  #      aes(x = reorder(word, freq), y = freq)) +
+  # geom_bar(stat = "identity") +
+  # xlab("frequent words") +
+  # ylab("occurrences") +
+  # #easy_rotate_x_labels(angle = 90) +
+  # ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "Besides 'Coronavirus'")) +
+  # coord_flip()
+  # print(p)
+  
+  if(is5G)
+  {
+    dDoc = dDoc[3:51, ] # Skip coronavirus term
+    mySubTitle = "'Coronavirus' and '5G' are skipped."
+  } else {
+    dDoc = dDoc[2:51, ] # Skip coronavirus and 5G terms
+    mySubTitle = "'Coronavirus' is skipped."
+  }
+  
+  p = ggplot(dDoc,
+       aes(x = reorder(word, freq), y = freq)) +
+  geom_bar(stat = "identity") +
+  xlab("frequent words") +
+  ylab("tweets") +
+  #easy_rotate_x_labels(angle = 90) +
+  ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val),
+          subtitle = mySubTitle) +
+  coord_flip()
+  print(p)
+  rm(p)
+  
+  print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
+  print(findAssocs(dtm_htgs, terms = c("coronavirus"), corlimit = .1))
+  
+  set.seed(13712)
+  
+  wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
+            random.order=FALSE, max.words=200, rot.per=0.35,
+            colors=brewer.pal(8, "Dark2"))
+  
+  # Return a vector of the DTMs, before and after sparsity removal
+  return(list(sparse=ret, pruned=dtm_htgs))
+}
 ```
+
+```{r}
+# Split the tweets in 5g and non-5g
+tweets.n5g = subset(x = tweets, subset = !five_g)
+tweets.5g = subset(x = tweets, subset = five_g)
+# If tweets are to be retained, comment the following
+# rm(tweets)
+```
+
 
 # Non-5G Analysis
 
 ```{r building the TDM for non-5G}
-val = "non-5G"
-if(RESAVE_TDMs)
-{
-# Build a TDM using the hashtags for non-5G
-htgs = VCorpus(VectorSource(subset(x = tweets,
-                                   subset = !five_g,
-                                   )$hashtags)
-               )
-htgs = preprocess_hashtags(htgs, val)
-# Building the term-doc matrix
-dtm_htgs = TermDocumentMatrix(htgs,
-                              control = list(wordLengths=c(2, Inf)))
-saveRDS(object = dtm_htgs, file = file.path(DIR_TDMs_PATH,
-                                            paste0("Adjacent_Topics_",val,
-                                                ".rds")))
-} else {
-dtm_htgs = readRDS(file = file.path(DIR_TDMs_PATH,
-                                    paste0("Adjacent_Topics_",val,
-                                           ".rds"))
-                   )
-}
-
-dtm_htgs
+dtm_htgs = vsm_modeller(data = tweets.n5g, RESAVE_TDMs = RESAVE_TDMs,
+                        val = "non-5G", rds_prefname = "Adjacent_Topics",
+                        sparsity_threshold = 0.999, is5G = FALSE)
 ```
 
-The current term-document matrix holds `r nrow(dtm_htgs)` terms in `r ncol(dtm_htgs)` tweets.
+As we see, the current term-document matrix holds `r length(dtm_htgs$sparse)` terms in `r length(dtm_htgs$sparse)` tweets.
 
 Unfortunately, due to efficiency reason we have to suffice with the least sparse terms because we have a lot of sparsity in the TDM. That should not remove significant relations or findings we are after. Terms that are 99.9% sparse or more will be pruned away.
 
-```{r removing sprastiy}
-# Due to high memory requirements, we have to remove some sparse terms
-# Normally this does not remove significant relations we hope to find
-dtm_htgs = removeSparseTerms(dtm_htgs, 0.999)
-# How to check for correctness? Can I access a specific doc, because some hashtags are mentioned 27times! like in 1212958
-```
-
-Removing extremely sparse terms leaves us with `r nrow(dtm_htgs)` terms. In some tweets, a term is repeated more than once, the case we consider redundant. We suffice only with one occurrence, so eventually we are regarding the number of tweets in which the term appears, disregarding redundancies in a tweet. We shall explore the counts of these denser terms next.
-
-```{r unpacking}
-if(RESAVE_TDMs)
-{
-m = as.matrix(dtm_htgs)
-
-# # Corpus counts
-# v = sort(rowSums(m),decreasing=TRUE)
-# d = data.frame(word = names(v),freq=unname(v))
-
-# Tweets counts
-vDoc = sort(rowSums(m > 0),decreasing=TRUE)
-dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
-
-rm(m, vDoc)
-saveRDS(object = dDoc, file = file.path(DIR_TDMs_PATH,
-                                            paste0("Adjacent_Topics_dDoc_",val,
-                                                ".rds")))
-} else {
-  dDoc = readRDS(file = file.path(DIR_TDMs_PATH,
-                                    paste0("Adjacent_Topics_dDoc_",val,
-                                           ".rds"))
-                   )
-}
-
-# p = ggplot(d[2:51, ],
-#      aes(x = reorder(word, freq), y = freq)) +
-# geom_bar(stat = "identity") +
-# xlab("frequent words") +
-# ylab("occurrences") +
-# #easy_rotate_x_labels(angle = 90) +
-# ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "Besides 'Coronavirus'")) +
-# coord_flip()
-# print(p)
-
-p = ggplot(dDoc[2:51, ],
-     aes(x = reorder(word, freq), y = freq)) +
-geom_bar(stat = "identity") +
-xlab("frequent words") +
-ylab("tweets") +
-#easy_rotate_x_labels(angle = 90) +
-ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val), subtitle = "Coronavirus was skipped") +
-coord_flip()
-print(p)
-rm(p)
-
-print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
-print(findAssocs(dtm_htgs, terms = c("coronavirus"), corlimit = .1))
-
-set.seed(13712)
-
-wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
-          random.order=FALSE, max.words=200, rot.per=0.35,
-          colors=brewer.pal(8, "Dark2"))
-
-```
+Removing extremely sparse terms leaves us with `r length(dtm_htgs$pruned)` terms. In some tweets, a term is repeated more than once, the case we consider redundant. We suffice only with one occurrence, so eventually we are regarding the number of tweets in which the term appears, disregarding redundancies in a tweet. We explored the counts of these denser terms too above.
 
 # 5G Tweets
+The same thing is applied to 5G tweets, but without removing sparsity as there is no need to due to the smaller size of data.
 
 ```{r building the TDM for 5G}
-val = "5G"
-if(RESAVE_TDMs)
-{
-# Build a TDM using the hashtags for 5G
-htgs = VCorpus(VectorSource(subset(x = tweets,
-                                   subset = five_g,
-                                   )$hashtags)
-               )
-htgs = preprocess_hashtags(htgs, val)
-# Building the term-doc matrix
-dtm_htgs = TermDocumentMatrix(htgs,
-                              control = list(wordLengths=c(2, Inf)))
-saveRDS(object = dtm_htgs, file = file.path(DIR_TDMs_PATH,
-                                            paste0("Adjacent_Topics_",val,
-                                                ".rds")))
-} else {
-dtm_htgs = readRDS(file = file.path(DIR_TDMs_PATH,
-                                    paste0("Adjacent_Topics_",val,
-                                           ".rds"))
-                   )
-}
-
-dtm_htgs
+dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
+                        val = "5G", rds_prefname = "Adjacent_Topics",
+                        sparsity_threshold = NA, is5G = TRUE)
 ```
 
-The current term-document matrix holds `r nrow(dtm_htgs)` terms in `r ncol(dtm_htgs)` tweets.
-
-```{r unpacking 5G}
-# Save terms counts on drive so that we don't need to unpack the sparse matrix
-if(RESAVE_TDMs)
-{
-m = as.matrix(dtm_htgs)
-
-# # Corpus counts
-# v = sort(rowSums(m),decreasing=TRUE)
-# d = data.frame(word = names(v),freq=unname(v))
-
-# Tweets counts
-vDoc = sort(rowSums(m > 0),decreasing=TRUE)
-dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
-
-rm(m, vDoc)
-saveRDS(object = dDoc, file = file.path(DIR_TDMs_PATH,
-                                            paste0("Adjacent_Topics_dDoc_",val,
-                                                ".rds")))
-} else {
-  dDoc = readRDS(file = file.path(DIR_TDMs_PATH,
-                                    paste0("Adjacent_Topics_dDoc_",val,
-                                           ".rds"))
-                   )
-}
-# p = ggplot(d[2:51, ],
-#      aes(x = reorder(word, freq), y = freq)) +
-# geom_bar(stat = "identity") +
-# xlab("frequent words") +
-# ylab("occurrences") +
-# #easy_rotate_x_labels(angle = 90) +
-# ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "Besides 'Coronavirus'")) +
-# coord_flip()
-# print(p)
-
-p = ggplot(dDoc[3:51, ],
-     aes(x = reorder(word, freq), y = freq)) +
-geom_bar(stat = "identity") +
-xlab("frequent words") +
-ylab("tweets") +
-#easy_rotate_x_labels(angle = 90) +
-ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val), subtitle = "Coronavirus and 5G were skipped") +
-coord_flip()
-print(p)
-rm(p)
-
-print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
-print(findAssocs(dtm_htgs, terms = c("coronavirus"), corlimit = .1))
-
-set.seed(13712)
-
-wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
-          random.order=FALSE, max.words=200, rot.per=0.35,
-          colors=brewer.pal(8, "Dark2"))
-```
+The current term-document matrix holds `r nrow(dtm_htgs[1])` terms in `r ncol(dtm_htgs[1])` tweets.
 
 # A Drill-Down on Each Dataset for Evolvement
 
 ```{r}
 for(val in unique(tweets$src))
 {
-  
+  print(paste("TODO", val))
 }
 
 ```
