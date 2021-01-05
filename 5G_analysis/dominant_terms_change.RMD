@@ -51,7 +51,7 @@ nfreq = ds.freq %>%
   top_n(n = FREQ_THRESHOLD, wt = freq) %>%
   ungroup
 
-# Now after getting the most frequent 50 terms in each dataset, we reacquire then from the original dataset
+# Now after getting the most frequent 15 terms in each dataset, we re-acquire them from the original dataset anew
 nfreq = ds.freq[ds.freq$word %in% nfreq$word, ]
 
 # Since the sizes of the datasets are different, we need to use relative measures. Let's use percentages
