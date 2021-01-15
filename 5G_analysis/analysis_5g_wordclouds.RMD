@@ -40,7 +40,7 @@ DIR_PATH = file.path("..", "..", "..",
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
-RESAVE_TDMs = FALSE  # TRUE takes a LOT of time!
+RESAVE_TDMs = TRUE  # TRUE takes a LOT of time!
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -433,13 +433,13 @@ if(RESAVE_TDMs)
                                                 paste0(val,"_n5G", ".rds")))
   
   # MEMORY INSUFFICIENT!
-  # all_texts = VCorpus(VectorSource(tweets$text))
-  # all_texts = preprocess_texts(all_texts, val)
-  # # Building the term-doc matrix
-  # dtm_all_tweets = TermDocumentMatrix(all_texts,
-  #                                     control = list(wordLengths=c(2, Inf)))
-  # saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-  #                                               paste0(val, ".rds")))
+  all_texts = VCorpus(VectorSource(tweets$text))
+  all_texts = preprocess_texts(all_texts, val)
+  # Building the term-doc matrix
+  dtm_all_tweets = TermDocumentMatrix(all_texts,
+                                      control = list(wordLengths=c(2, Inf)))
+  saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
+                                                    paste0(val, ".rds")))
   
 } else {
   
@@ -458,15 +458,12 @@ After we remove any terms which are sparse more than 98% of the times, we separa
 ```{r unpacking combined data}
 # Removing sparsity!
 val = "non_5G"
-# print("Due to technical problems, we are removing terms whose sparsity exceed 98.5% but in 5G datasets")
-# dtm_all_tweets = removeSparseTerms(x = dtm_all_tweets, sparse = 0.985)
-#dtm_n5g_tweets = removeSparseTerms(x = dtm_n5g_tweets, sparse = 0.985)
+print("Due to technical problems, we are removing terms whose sparsity exceed 99% but in 5G datasets")
+dtm_all_tweets = removeSparseTerms(x = dtm_all_tweets, sparse = 0.99)
+dtm_n5g_tweets = removeSparseTerms(x = dtm_n5g_tweets, sparse = 0.99)
 
 # Make the general wordcloud for non 5g terms
-m <- as.matrix(dtm_all_tweets)
-# FILTER OUT 5G TERMS!
-# TODO cannot due to memory constraints
-
+m <- as.matrix(dtm_n5g_tweets)
 v <- sort(rowSums(m),decreasing=TRUE)
 d <- data.frame(word = names(v),freq=unname(v))
 
@@ -707,3 +704,4 @@ Where:
 \[P(5g) = \frac{C(tweets_{5g})}{C(tweets_{all})}\]
 
 ---
+
