@@ -15,7 +15,10 @@ editor_options:
 # Exploration and Preprocessing of Twitter Data
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE,
+                      echo = FALSE,
+                      fig.align = "center",
+                      dev = "svg")
 ```
 
 ```{r loading_data}

@@ -28,6 +28,8 @@ library(wordcloud)
 library(textclean)
 library(cowplot)
 
+options(error = function() {beepr::beep(9)})
+
 theme_set(theme_linedraw())
 theme_update(plot.title = element_text(hjust = 0.5),
              plot.subtitle = element_text(hjust = 0.5))
@@ -123,9 +125,13 @@ Some users annotate their tweets with labels which represent the ulterior themes
 In our combined `r round(nrow(tweets)/1000000, 1)`m tweets, there are `r round(nrow(subset(tweets, !is.na(hashtags)))/1000000, 1)`m annotated tweets whose hashtags we shall examine in a holistic fashion and then in individual data sets.
 
 ```{r holistic hashtags analysis}
+print("All tweets:")
+print(table(tweets$src))
 tweets = tweets %>%
   select(hashtags, five_g, src) %>%
   filter(!is.na(hashtags))
+print("Tagged tweets:")
+print(table(tweets$src))
 ```
 
 ```{r functions for preprocessing}
@@ -282,23 +288,25 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   
   if(is5G)
   {
-    dDoc = dDoc[3:51, ] # Skip coronavirus term
+    dDoc = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ] # Skip coronavirus and 5G terms
     mySubTitle = "'Coronavirus' and '5G' are skipped."
   } else {
-    dDoc = dDoc[2:51, ] # Skip coronavirus and 5G terms
+    dDoc = dDoc[!dDoc$word == "coronavirus", ] # Skip coronavirus terms
     mySubTitle = "'Coronavirus' is skipped."
   }
   
-  p = ggplot(dDoc,
+  p = ggplot(dDoc[1:25, ],
        aes(x = reorder(word, freq), y = freq)) +
   geom_bar(stat = "identity") +
   xlab("frequent words") +
   ylab("tweets") +
   #easy_rotate_x_labels(angle = 90) +
-  ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val),
+  ggtitle(paste("Top 25 Frequent Words Tweet Occurrences in", val),
           subtitle = mySubTitle) +
   coord_flip()
   print(p)
+  ggsave(filename = paste0(rds_prefname, val, ifelse(is5G, "_5G", "_n5G"), ".pdf"),
+         path = "./figures/", device = "pdf")
   rm(p)
   
   print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
@@ -307,17 +315,80 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   set.seed(13712)
   
   wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
-            random.order=FALSE, max.words=200, rot.per=0.35,
+            random.order=FALSE, max.words=100, rot.per=0.35,
             colors=brewer.pal(8, "Dark2"))
   
   # Return a vector of the DTMs, before and after sparsity removal
   return(list(sparse=ret, pruned=dtm_htgs, termfreqs=dDoc))
 }
 
-visualise_evolution = function(terms_frequencies)
+visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
 {
-  # Reuse the code we have developed before for mere terms on the hashtags:
+  # terms_frequencies should be a dataframe of word and frequencies
+  # with factorial source and size of source     
+  if(!is.factor(terms_frequencies$src))
+  {
+    terms_frequencies$src = factor(x = terms_frequencies$src,
+                                   ordered = TRUE,
+                                   levels = c("Feb01", "Feb15", "Mar01", "Mar15",
+                                              "Apr01", "Apr15","May01"))
+  }
   
+  
+  # Now we will choose the top n words, excluding words that appear 1 time only:
+  topN = terms_frequencies %>%
+    group_by(src) %>%
+    top_n(n = freq_threshold, wt = freq) %>%
+    ungroup
+  
+  # Remove one-time words
+  topN = topN[topN$freq > 1, ]
+  
+  # Get all terms data from the dataset, to revive those which weren't frequent in some of them, so that we study them nonetheless
+  topN = terms_frequencies[terms_frequencies$word %in% topN$word,]
+  
+  # Append the local percentages
+  topN[, "percentage"] = 100*topN$freq/topN$size
+  
+  # Append the global total percentages in all datasets
+  total = topN %>%
+    select(src, size) %>%
+    unique %>%
+    summarise(sum(size)) %>%
+    pull
+  htgsStats = topN %>%
+    group_by(word) %>%
+    summarise(totfreq = sum(freq)) %>%
+    ungroup %>%
+    mutate(tot_percentage = 100*totfreq / total)
+  
+  # Merge the two datasets so that we get all the data in one place
+  topN = merge(x = topN, y=htgsStats)
+  
+  # Re-use the code we have developed before for mere terms on the hashtags:
+  evol_plot = topN %>%
+    mutate(source = factor(topN$src,
+                           levels = rev(levels(topN$src)))) %>%
+    ggplot(data=.,
+           aes(y = reorder(
+             paste0(word, " (",round(tot_percentage,2),"%)")
+             , tot_percentage),
+               x=percentage, fill=source)) +
+    geom_bar(stat="identity", position = "fill", colour = "black") +
+    xlab("occurring percentage of terms in releavant tweet datasets") +
+    ylab("hashtag") +
+    ggtitle(paste("Percentage compositions of the most frequent",
+                  freq_threshold,
+                  "hashtags in",label,"tweets across datasets and how they evolve"),
+            subtitle = "Numbers in parantheses are total percentage of tweets containing the tag in all datasets combined") +
+    guides(fill = guide_legend(reverse = T, override.aes=list(shape=21))) +
+    scale_fill_manual(values = c("#381A15","#5E3341","#6C5979","#5489A5",
+                                 "#36B8B0","#77E197","#E4FE75"))
+  
+  ggsave(filename = paste0("Adjacent_Evolution_", label, ".pdf"),
+         path = "./figures/", device = "pdf")
+  print(evol_plot)
+  return(topN)
 }
 ```
 
@@ -333,16 +404,17 @@ rm(tweets)
 # Non-5G Analysis
 
 ```{r building the TDM for non-5G}
+mysparsity_threshold = 0.999
 dtm_htgs = vsm_modeller(data = tweets.n5g, RESAVE_TDMs = RESAVE_TDMs,
                         val = "ALL",
-                        sparsity_threshold = 0.999, is5G = FALSE)
+                        sparsity_threshold = mysparsity_threshold, is5G = FALSE)
 ```
 
-As we see, the current term-document matrix holds `r length(dtm_htgs$sparse)` terms in `r length(dtm_htgs$sparse)` tweets.
+As we see, the current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
 
-Unfortunately, due to efficiency reason we have to suffice with the least sparse terms because we have a lot of sparsity in the TDM. That should not remove significant relations or findings we are after. Terms that are 99.9% sparse or more will be pruned away.
+`r ifelse(is.na(mysparsity_threshold), print("") , print(paste("Due to efficiency reason we have to suffice with the least sparse terms because we have a lot of sparsity in the TDM. That should not remove significant relations or findings we are after. Terms that are 99.9% sparse or more will be pruned away. Removing extremely sparse terms leaves us with", dtm_htgs$pruned$nrow , "terms.")))`
 
-Removing extremely sparse terms leaves us with `r length(dtm_htgs$pruned)` terms. In some tweets, a term is repeated more than once, the case we consider redundant. We suffice only with one occurrence, so eventually we are regarding the number of tweets in which the term appears, disregarding redundancies in a tweet. We explored the counts of these denser terms too above.
+In some tweets, a term is repeated more than once, the case we consider redundant. We suffice only with one occurrence, so eventually we are regarding the number of tweets in which the term appears, disregarding redundancies in a tweet. We explored the counts of these denser terms too above.
 
 # 5G Tweets
 The same thing is applied to 5G tweets, but without removing sparsity as there is no need to due to the smaller size of data.
@@ -353,7 +425,7 @@ dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
                         sparsity_threshold = NA, is5G = TRUE)
 ```
 
-The current term-document matrix holds `r nrow(dtm_htgs[1])` terms in `r ncol(dtm_htgs[1])` tweets.
+The current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
 
 # A Drill-Down on Each Dataset for Evolvement
 
@@ -378,27 +450,31 @@ for(val in unique(tweets.n5g$src))
   
   # Append the freqs to the global evolution matrix
   termfreq.n5g[, "src"] = val
+  termfreq.n5g[, "size"] = nrow(subset(tweets.n5g, subset = src==val))
   if(nrow(freq.n5g) == 0)
     freq.n5g = termfreq.n5g
   else
     freq.n5g = rbind(freq.n5g, termfreq.n5g)
   
   termfreq.5g[, "src"] = val
+  termfreq.5g[, "size"] = nrow(subset(tweets.5g, subset = src==val))
   if(nrow(freq.5g) == 0)
     freq.5g = termfreq.5g
   else
     freq.5g = rbind(freq.5g, termfreq.5g)
-  
-}
 
+}
 ```
 
+```{r evolution visualisation}
+topN.n5g = visualise_evolution(terms_frequencies = freq.n5g, freq_threshold = 15,
+                               label = "Non-5G")
+topN.5g = visualise_evolution(terms_frequencies = freq.5g, freq_threshold = 15,
+                              label = "5G")
+
+beepr::beep(3)
+```
 
 
 # Supplying the Missing Topics for Untagged Tweets?
 We have 60% of tweets unlabelled. We shall use the state-of-the-art statistical modelling in order to infer the topical structures of these tweets via BTM.
-
-```{r}
-print(freq.5g)
-```
-
