@@ -404,7 +404,7 @@ rm(tweets)
 # Non-5G Analysis
 
 ```{r building the TDM for non-5G}
-mysparsity_threshold = 0.999
+mysparsity_threshold = NA
 dtm_htgs = vsm_modeller(data = tweets.n5g, RESAVE_TDMs = RESAVE_TDMs,
                         val = "ALL",
                         sparsity_threshold = mysparsity_threshold, is5G = FALSE)
