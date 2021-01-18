@@ -48,7 +48,7 @@ DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
 
-mysparsity_threshold = 0.999
+MAX_SPARSITY = 0.999
 ```
 
 Loading the data:
@@ -225,6 +225,14 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
                         sparsity_threshold = NA,
                         corrterm = "coronavirus")
 {
+  # 5G Suffix
+  if(is.na(is5G))
+  {
+    five_G_suffix = "_ALL_"
+  } else {
+    five_G_suffix = paste0("_5G_", is5G)
+  }
+  
   if(RESAVE_TDMs)
   {
     # Build a TDM using the hashtags
@@ -236,11 +244,13 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
                                   control = list(wordLengths=c(2, Inf)))
     saveRDS(object = dtm_htgs, file = file.path(DIR_TDMs_PATH,
                                                 paste0(rds_prefname, "_", val,
-                                                       "_5G_", is5G,".rds")))
+                                                       five_G_suffix,
+                                                       MAX_SPARSITY,".rds")))
     } else {
     dtm_htgs = readRDS(file = file.path(DIR_TDMs_PATH,
                                         paste0(rds_prefname, "_", val,
-                                               "_5G_", is5G,".rds")))
+                                               five_G_suffix,
+                                               MAX_SPARSITY,".rds")))
   }
   # Save the sparse dtm matrix for statistical purposes
   ret = dtm_htgs
@@ -251,7 +261,7 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
     # Due to high memory requirements, we have to remove some sparse terms
     # Normally this does not remove significant relations we hope to find
     dtm_htgs = removeSparseTerms(dtm_htgs, sparsity_threshold)
-    print(paste("NOTE: sparsity pruned, less than",
+    print(paste0("NOTE: sparsity pruned, less than ",
                 100*sparsity_threshold, "% is kept"))
   }
   
@@ -271,11 +281,13 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
     saveRDS(object = dDoc, file = file.path(DIR_TDMs_PATH,
                                             paste0(rds_prefname, "_dDoc_",
                                                    val,
-                                                    "_5G_", is5G,".rds")))
+                                                    five_G_suffix,
+                                                   MAX_SPARSITY,".rds")))
   } else {
     dDoc = readRDS(file = file.path(DIR_TDMs_PATH,
                                     paste0(rds_prefname, "_dDoc_",val,
-                                            "_5G_", is5G,".rds")))
+                                            five_G_suffix,
+                                           MAX_SPARSITY,".rds")))
   }
 
   # p = ggplot(d[2:51, ],
@@ -288,7 +300,7 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   # coord_flip()
   # print(p)
   
-  if(is5G)
+  if(!is.na(is5G) & is5G)
   {
     dDoc = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ] # Skip coronavirus and 5G terms
     mySubTitle = "'Coronavirus' and '5G' are skipped."
@@ -313,7 +325,6 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   
   print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
   print(findAssocs(dtm_htgs, terms = c("coronavirus"), corlimit = .1))
-  
   set.seed(13712)
   
   wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
@@ -394,7 +405,7 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
 }
 
 
-compute_salience = function(tdm.all, tdm.5g, verbose = F)
+compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
 {
   if(verbose)
   {
@@ -404,8 +415,9 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
   
   t.and.fiveG.DocCounts = (rowSums(as.matrix(tdm.5g) > 0))
   
-  print("Sufficing with terms whose sparsity doesn't exceed 99.8% in all")
-  tdm.all = removeSparseTerms(x = tdm.all, sparse = mysparsity_threshold)
+  print(paste("Sufficing with terms whose sparsity doesn't exceed",MAX_SPARSITY,
+              "in all"))
+  tdm.all = removeSparseTerms(x = tdm.all, sparse = sparsity)
   
   t.counts = (rowSums(as.matrix(
     tdm.all[tdm.all$dimnames$Terms %in% names(t.and.fiveG.DocCounts),]) > 0)
@@ -431,8 +443,8 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
 # Split the tweets in 5g and non-5g
 tweets.n5g = subset(x = tweets, subset = !five_g)
 tweets.5g = subset(x = tweets, subset = five_g)
-# If tweets are to be retained, comment the following
-rm(tweets)
+# If tweets are to be retained, e.g. for salience compuration, then comment the following
+# rm(tweets)
 ```
 
 
@@ -440,13 +452,13 @@ rm(tweets)
 
 ```{r building the TDM for non-5G}
 dtm_htgs = vsm_modeller(data = tweets.n5g, RESAVE_TDMs = RESAVE_TDMs,
-                        val = "ALL",
-                        sparsity_threshold = mysparsity_threshold, is5G = FALSE)
+                        val = "Non-5G",
+                        sparsity_threshold = MAX_SPARSITY, is5G = FALSE)
 ```
 
 As we see, the current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
 
-`r ifelse(is.na(mysparsity_threshold), print("") , print(paste0("Due to efficiency reason we have to suffice with the least sparse terms because we have a lot of sparsity in the TDM. That should not remove significant relations or findings we are after. Terms that are ", 100*mysparsity_threshold ,"% sparse or more will be pruned away. Removing extremely sparse terms leaves us with ", dtm_htgs$pruned$nrow , " terms.")))`
+`r ifelse(is.na(MAX_SPARSITY), print("") , print(paste0("Due to efficiency reason we have to suffice with the least sparse terms because we have a lot of sparsity in the TDM. That should not remove significant relations or findings we are after. Terms that are ", 100*MAX_SPARSITY ,"% sparse or more will be pruned away. Removing extremely sparse terms leaves us with ", dtm_htgs$pruned$nrow , " terms.")))`
 
 In some tweets, a term is repeated more than once, the case we consider redundant. We suffice only with one occurrence, so eventually we are regarding the number of tweets in which the term appears, disregarding redundancies in a tweet. We explored the counts of these denser terms too above.
 
@@ -455,7 +467,7 @@ The same thing is applied to 5G tweets, but without removing sparsity as there i
 
 ```{r building the TDM for 5G}
 dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
-                        val = "ALL",
+                        val = "Non-5G",
                         sparsity_threshold = NA, is5G = TRUE)
 ```
 
@@ -476,7 +488,7 @@ for(val in unique(tweets.n5g$src))
   # Filter the dataset and load it into our modeller
   termfreq.n5g = vsm_modeller(data = subset(tweets.n5g, subset = src==val),
                               RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = FALSE,
-                              sparsity_threshold = mysparsity_threshold)[3]$termfreqs
+                              sparsity_threshold = MAX_SPARSITY)[3]$termfreqs
   print("5G:")
   termfreq.5g = vsm_modeller(data = subset(tweets.5g, subset = src==val),
                              RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = TRUE,

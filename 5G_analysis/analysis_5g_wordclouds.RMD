@@ -45,7 +45,7 @@ DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
 
-MAX_SPARSITY = 0.998
+MAX_SPARSITY = 0.99
 ```
 
 Loading the data:
