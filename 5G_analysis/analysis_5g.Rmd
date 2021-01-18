@@ -44,6 +44,8 @@ RESAVE_TDMs = FALSE  # TRUE takes a LOT of time!
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
+
+MAX_SPARSITY = 0.998
 ```
 
 Loading the data:
@@ -289,7 +291,7 @@ preprocess_texts = function(texts, marker)
   return(texts)
 }
 
-compute_salience = function(tdm.all, tdm.5g, verbose = F)
+compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
 {
   if(verbose)
   {
@@ -300,7 +302,7 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
   t.and.fiveG.DocCounts = (rowSums(as.matrix(tdm.5g) > 0))
   
   print("Sufficing with terms whose sparsity doesn't exceed .993% in all")
-  tdm.all = removeSparseTerms(x = tdm.all, sparse = .993)
+  tdm.all = removeSparseTerms(x = tdm.all, sparse = sparsity)
   
   t.counts = (rowSums(as.matrix(
     tdm.all[tdm.all$dimnames$Terms %in% names(t.and.fiveG.DocCounts),]) > 0)
@@ -458,7 +460,8 @@ print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
 set.seed(13712)
 
 print("Salience and conditional probabilities:")
-salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets)
+salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets,
+                            sparsity = MAX_SPARSITY)
 # Exclude "5g" if there
 if("5g" %in% names(salience))
   salience["5g",] = NA
@@ -555,7 +558,8 @@ for (val in unique(five_g_tweets$src))
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
   
   print("Salience and conditional probabilities:")
-  salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets)
+  salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets,
+                              sparsity = MAX_SPARSITY)
   # Exclude "5g" if there
   if("5g" %in% names(salience))
     salience["5g",] = NA
