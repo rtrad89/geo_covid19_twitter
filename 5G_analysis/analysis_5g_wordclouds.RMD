@@ -44,6 +44,8 @@ RESAVE_TDMs = TRUE  # TRUE takes a LOT of time!
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
+
+MAX_SPARSITY = 0.998
 ```
 
 Loading the data:
@@ -306,9 +308,6 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
   
   t.and.fiveG.DocCounts = (rowSums(as.matrix(tdm.5g) > 0))
   
-  #print("Sufficing with terms whose sparsity doesn't exceed .993% in all")
-  #tdm.all = removeSparseTerms(x = tdm.all, sparse = .99)
-  
   t.counts = (rowSums(as.matrix(
     tdm.all[tdm.all$dimnames$Terms %in% names(t.and.fiveG.DocCounts),]) > 0)
   )
@@ -458,9 +457,9 @@ After we remove any terms which are sparse more than 98% of the times, we separa
 ```{r unpacking combined data}
 # Removing sparsity!
 val = "non_5G"
-print("Due to technical problems, we are removing terms whose sparsity exceed 99.8% but in 5G datasets")
-dtm_all_tweets = removeSparseTerms(x = dtm_all_tweets, sparse = 0.998)
-dtm_n5g_tweets = removeSparseTerms(x = dtm_n5g_tweets, sparse = 0.998)
+print(paste("Due to technical problems, we are removing terms whose sparsity exceed", MAX_SPARSITY ,"but in 5G datasets"))
+dtm_all_tweets = removeSparseTerms(x = dtm_all_tweets, sparse = MAX_SPARSITY)
+dtm_n5g_tweets = removeSparseTerms(x = dtm_n5g_tweets, sparse = MAX_SPARSITY)
 
 # Make the general wordcloud for non 5g terms
 m <- as.matrix(dtm_n5g_tweets)
