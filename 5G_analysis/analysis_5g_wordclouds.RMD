@@ -428,7 +428,7 @@ if(PURGE_TDMs)
   saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
                                                 paste0(val,"_5G",
                                                        MAX_SPARSITY, ".rds")))
-  
+  print("TDM of all tweets created.")  
   # MEMORY INSUFFICIENT!
   all_texts = VCorpus(VectorSource(tweets$text))
   all_texts = preprocess_texts(all_texts, val)
@@ -438,6 +438,7 @@ if(PURGE_TDMs)
   saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
                                                     paste0(val,
                                                            MAX_SPARSITY, ".rds")))
+  print("TDM of 5G tweets created.")
   
 } else {
   
@@ -445,9 +446,11 @@ if(PURGE_TDMs)
   dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
                                         paste0(val,"_5G", 
                                                MAX_SPARSITY, ".rds")))
+  print("TDM of all tweets loaded.")
   dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
                            paste0(val,
                                   MAX_SPARSITY, ".rds")))
+  print("TDM of 5G tweets loaded.")
 }
 
 # Treat n5G individually because it is idiosyncratic to this case only
@@ -460,8 +463,10 @@ if(!file.exists(n5g_fp))
   dtm_n5g_tweets = TermDocumentMatrix(n5g_texts,
                                       control = list(wordLengths=c(2, Inf)))
   saveRDS(object = dtm_n5g_tweets, file = n5g_fp)
+  print("TDM for n5G created.")
 } else {
   dtm_n5g_tweets = readRDS(file = n5g_fp)
+  print("TDM for n5G loaded.")
 }
 
 print("Combined TDMS are created")
