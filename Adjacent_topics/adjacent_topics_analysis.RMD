@@ -491,7 +491,7 @@ salience = compute_salience(tdm.all = dtm_all$pruned, tdm.5g = dtm_htgs$pruned)
 if("5g" %in% rownames(salience))
   salience["5g",] = NA
   
-barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
+barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
         las = 2, cex.names = 0.8,
         main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
 

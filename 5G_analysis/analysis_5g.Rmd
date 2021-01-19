@@ -41,7 +41,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
-RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
+RESAVE_INDIVIDUAL_TDMs = FALSE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -292,7 +292,7 @@ preprocess_texts = function(texts, marker)
   return(texts)
 }
 
-compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
+compute_salience = function(tdm.all, tdm.5g, verbose = F)
 {
   if(verbose)
   {
@@ -301,10 +301,6 @@ compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
   }
   
   t.and.fiveG.DocCounts = (rowSums(as.matrix(tdm.5g) > 0))
-  
-  # print(paste("Sufficing with terms whose sparsity doesn't exceed",MAX_SPARSITY,
-  #             "in all"))
-  # tdm.all = removeSparseTerms(x = tdm.all, sparse = sparsity)
   
   t.counts = (rowSums(as.matrix(
     tdm.all[tdm.all$dimnames$Terms %in% names(t.and.fiveG.DocCounts),]) > 0)
@@ -462,9 +458,9 @@ print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
 
 set.seed(13712)
 
-print("Salience and conditional probabilities:")
-salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets,
-                            sparsity = MAX_SPARSITY)
+print("Salience and conditional probabilities after sufficing with 99% sparsity:")
+dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
+salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets)
 # Exclude "5g" if there
 if("5g" %in% names(salience))
   salience["5g",] = NA
@@ -472,7 +468,7 @@ if("5g" %in% names(salience))
 #        aes(x = "Pr.boost",y = rownames(salience))) +
 #   geom_bar(stat = "identity")
   
-barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
+barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
         las = 2, cex.names = 0.8,
         main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
 
@@ -481,6 +477,8 @@ barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
 # par(mar=rep(0, 4))
 # plot.new()
 # text(x=0.5, y=0.5, val, font = 2, cex = 1)
+# Skip 5G and Coronavirus terms
+d = d[!d$word %in% c("coronavirus", "5g"), ]
 wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
@@ -560,17 +558,17 @@ for (val in unique(five_g_tweets$src))
   print("Pearson Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
   
-  print("Salience and conditional probabilities:")
-  salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets,
-                              sparsity = MAX_SPARSITY)
+  print("Salience and conditional probabilities after sufficing with 99% sparsity:")
+  dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
+  salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets)
   # Exclude "5g" if there
-  if("5g" %in% names(salience))
+  if("5g" %in% rownames(salience))
     salience["5g",] = NA
   # ggplot(data = data.frame(salience),
   #        aes(x = "Pr.boost",y = rownames(salience))) +
   #   geom_bar(stat = "identity")
   
-  barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
+  barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
           las = 2, cex.names = 0.7, main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
   # title(main=ttl, cex.main=0.6)
   
@@ -578,6 +576,7 @@ for (val in unique(five_g_tweets$src))
   # par(mar=rep(0, 4))
   # plot.new()
   # text(x=0.5, y=0.5, val, font = 2, cex = 1)
+  d = d[!d$word %in% c("coronavirus", "5g"), ]
   wordcloud(words = d$word, freq = d$freq, min.freq = 3,
             max.words=200, random.order=FALSE, rot.per=0.35,
             colors=brewer.pal(8, "Dark2"))
