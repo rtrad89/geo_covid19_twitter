@@ -302,9 +302,9 @@ compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
   
   t.and.fiveG.DocCounts = (rowSums(as.matrix(tdm.5g) > 0))
   
-  print(paste("Sufficing with terms whose sparsity doesn't exceed",MAX_SPARSITY,
-              "in all"))
-  tdm.all = removeSparseTerms(x = tdm.all, sparse = sparsity)
+  # print(paste("Sufficing with terms whose sparsity doesn't exceed",MAX_SPARSITY,
+  #             "in all"))
+  # tdm.all = removeSparseTerms(x = tdm.all, sparse = sparsity)
   
   t.counts = (rowSums(as.matrix(
     tdm.all[tdm.all$dimnames$Terms %in% names(t.and.fiveG.DocCounts),]) > 0)

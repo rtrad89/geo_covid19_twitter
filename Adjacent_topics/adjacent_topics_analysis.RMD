@@ -1,7 +1,7 @@
 ---
 title: "Adjacent Topics to 5G COVID-19 Tweets"
 author: "RTRAD"
-date: "10/11/2020"
+date: "`r Sys.Date()`"
 output: 
   html_document: 
     fig_width: 10
@@ -43,7 +43,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 
-RESAVE_TDMs = TRUE # TRUE takes a LOT of time!
+RESAVE_TDMs = FALSE # TRUE takes a LOT of time!
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -147,6 +147,7 @@ coronavirus_synonyms = c("corona virus",
                          "corona ",
                          "corona",
                          "sarscov2")
+
 unify_coronavirus = function(x)
 {
   x2 = stringi::stri_replace_all_fixed(str = x,
@@ -332,6 +333,7 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
             colors=brewer.pal(8, "Dark2"))
   
   # Return a vector of the DTMs, before and after sparsity removal
+  gc()
   return(list(sparse=ret, pruned=dtm_htgs, termfreqs=dDoc))
 }
 
@@ -390,7 +392,7 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
     geom_bar(stat="identity", position = "fill", colour = "black") +
     xlab("occurring percentage of terms in releavant tweet datasets") +
     ylab("hashtag") +
-    ggtitle(paste("Percentage compositions of the most frequent",
+    ggtitle(paste("Percentage compositions of the top",
                   freq_threshold,
                   "hashtags in",label,"tweets across datasets and how they evolve"),
             subtitle = "Numbers in parantheses are total percentage of tweets containing the tag in all datasets combined") +
@@ -401,11 +403,13 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
   ggsave(filename = paste0("Adjacent_Evolution_", label, ".pdf"),
          path = "./figures/", device = "pdf")
   print(evol_plot)
+  
+  gc()
   return(topN)
 }
 
 
-compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
+compute_salience = function(tdm.all, tdm.5g, verbose = F)
 {
   if(verbose)
   {
@@ -414,10 +418,6 @@ compute_salience = function(tdm.all, tdm.5g, sparsity=0.998, verbose = F)
   }
   
   t.and.fiveG.DocCounts = (rowSums(as.matrix(tdm.5g) > 0))
-  
-  print(paste("Sufficing with terms whose sparsity doesn't exceed",MAX_SPARSITY,
-              "in all"))
-  tdm.all = removeSparseTerms(x = tdm.all, sparse = sparsity)
   
   t.counts = (rowSums(as.matrix(
     tdm.all[tdm.all$dimnames$Terms %in% names(t.and.fiveG.DocCounts),]) > 0)
@@ -447,6 +447,13 @@ tweets.5g = subset(x = tweets, subset = five_g)
 # rm(tweets)
 ```
 
+# All Dataset Analysis
+```{r make the full dataset as TDM}
+# We will need to load the full data for the salience analysis
+dtm_all = vsm_modeller(data = tweets, RESAVE_TDMs = RESAVE_TDMs,
+                       val = "combined",
+                       sparsity_threshold = MAX_SPARSITY, is5G= NA)
+```
 
 # Non-5G Analysis
 
@@ -472,6 +479,23 @@ dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
 ```
 
 The current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
+
+## Salience of 5G hashtags
+
+We will compute the salience of 5G tweets in our full dataset.
+
+```{r compute the salince}
+salience = compute_salience(tdm.all = dtm_all$pruned, tdm.5g = dtm_htgs$pruned)
+
+# Exclude "5g" if there
+if("5g" %in% rownames(salience))
+  salience["5g",] = NA
+  
+barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
+        las = 2, cex.names = 0.8,
+        main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
+
+```
 
 # A Drill-Down on Each Dataset for Evolvement
 
