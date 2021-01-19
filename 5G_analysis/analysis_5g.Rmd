@@ -40,7 +40,8 @@ DIR_PATH = file.path("..", "..", "..",
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
-RESAVE_TDMs = FALSE  # TRUE takes a LOT of time!
+RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
+RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -492,7 +493,7 @@ rm(dtm_tweets, dtm_all_tweets)
 freq.terms = data.frame()
 for (val in unique(five_g_tweets$src))
 {
-  if(RESAVE_TDMs)
+  if(RESAVE_INDIVIDUAL_TDMs)
   {
     texts = VCorpus(VectorSource(subset(five_g_tweets, src == val)$text))
     texts = preprocess_texts(texts, val)
