@@ -28,6 +28,8 @@ library(wordcloud)
 library(textclean)
 library(cowplot)
 
+options(error = function() {beepr::beep(9)})
+
 theme_set(theme_linedraw())
 theme_update(plot.title = element_text(hjust = 0.5),
              plot.subtitle = element_text(hjust = 0.5))
@@ -40,7 +42,9 @@ DIR_PATH = file.path("..", "..", "..",
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
-RESAVE_TDMs = TRUE  # TRUE takes a LOT of time!
+
+PURGE_TDMs = FALSE # A dynamic flag to know if we want to purge the RDS cache repository or use what's available
+
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -139,7 +143,7 @@ plot_tweets =
           subtitle = paste("Re-tweets were excluded; N = ",
                            format(nrow(tweets),big.mark = ",")))
 
-ggsave(filename = paste0("general_analysis_all_tweets.pdf"),
+ggsave(filename = paste0("wc_analysis_all_tweets.pdf"),
        path = "./figures/")
 print(plot_tweets)
   
@@ -154,7 +158,7 @@ tweets %>%
           subtitle = paste("Re-tweets were excluded; N = ",
                            format(n_distinct(tweets$user_screen_name),
                                   big.mark = ",")))
-ggsave(filename = paste0("general_analysis_all_tweetusers.pdf"),
+ggsave(filename = paste0("wc_analysis_all_tweetusers.pdf"),
          path = "./figures/")
 
 ```
@@ -200,7 +204,7 @@ for (val in unique(usn$src))
     ylim(0, 7500) +
     easy_remove_x_axis(what = "text")
     
-  ggsave(filename = paste0("general_analysistop_users_",val,".pdf"),
+  ggsave(filename = paste0("wc_analysistop_users_",val,".pdf"),
          path = "./figures/")
 
   print(plt)
@@ -390,7 +394,7 @@ plot_grid(plot_tweets + easy_remove_y_axis(),
           plt3,
           ncol = 1)
 
-ggsave(filename = paste0("general_analysis_hydrations.pdf"),
+ggsave(filename = paste0("wc_analysis_hydrations.pdf"),
          path = "./figures/")
 
 rm(plot_tweets, plt1, plt2, plt3, mddl_row)
@@ -413,7 +417,8 @@ set.seed(13712)
 
 
 val="all_combined"
-if(RESAVE_TDMs)
+
+if(PURGE_TDMs)
 {
   texts = VCorpus(VectorSource(five_g_tweets$text))
   texts = preprocess_texts(texts, val)
@@ -421,15 +426,8 @@ if(RESAVE_TDMs)
   dtm_tweets = TermDocumentMatrix(texts,
                                   control = list(wordLengths=c(2, Inf)))
   saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"_5G", ".rds")))
-  
-  n5g_texts = VCorpus(VectorSource(non_5g_tweets$text))
-  n5g_texts = preprocess_texts(n5g_texts, val)
-  # Building the term-doc matrix
-  dtm_n5g_tweets = TermDocumentMatrix(n5g_texts,
-                                      control = list(wordLengths=c(2, Inf)))
-  saveRDS(object = dtm_n5g_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"_n5G", ".rds")))
+                                                paste0(val,"_5G",
+                                                       MAX_SPARSITY, ".rds")))
   
   # MEMORY INSUFFICIENT!
   all_texts = VCorpus(VectorSource(tweets$text))
@@ -438,18 +436,35 @@ if(RESAVE_TDMs)
   dtm_all_tweets = TermDocumentMatrix(all_texts,
                                       control = list(wordLengths=c(2, Inf)))
   saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-                                                    paste0(val, ".rds")))
+                                                    paste0(val,
+                                                           MAX_SPARSITY, ".rds")))
   
 } else {
   
   # Load the TDM
   dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                        paste0(val,"_5G", ".rds")))
-  # dtm_n5g_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-  #                                       paste0(val,"_n5G", ".rds")))
+                                        paste0(val,"_5G", 
+                                               MAX_SPARSITY, ".rds")))
   dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                           paste0(val, ".rds")))
+                           paste0(val,
+                                  MAX_SPARSITY, ".rds")))
 }
+
+# Treat n5G individually because it is idiosyncratic to this case only
+n5g_fp = file.path(DIR_TDMs_PATH, paste0(val,"_n5G", MAX_SPARSITY, ".rds"))
+if(!file.exists(n5g_fp))
+{
+  n5g_texts = VCorpus(VectorSource(non_5g_tweets$text))
+  n5g_texts = preprocess_texts(n5g_texts, val)
+  # Building the term-doc matrix
+  dtm_n5g_tweets = TermDocumentMatrix(n5g_texts,
+                                      control = list(wordLengths=c(2, Inf)))
+  saveRDS(object = dtm_n5g_tweets, file = n5g_fp)
+} else {
+  dtm_n5g_tweets = readRDS(file = n5g_fp)
+}
+
+print("Combined TDMS are created")
 ```
 
 After we remove any terms which are sparse more than 98% of the times, we separate the two datasets to control for confounding effects.
@@ -479,7 +494,7 @@ ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in Non-5G Tweets (Exclud
 coord_flip()
 print(p)
 
-ggsave(filename = paste0("general_analysis_CorpusOcurrences",val,".pdf"),
+ggsave(filename = paste0("wc_analysis_CorpusOcurrences",val,".pdf"),
          path = "./figures/")
 
 p = ggplot(dDoc[1:50, ],
@@ -491,7 +506,7 @@ ylab("tweets") +
 ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in in Non-5G Tweets (Excluding Hashtags)")) +
 coord_flip()
 
-ggsave(filename = paste0("general_analysis_TweetOcurrences",val,".pdf"),
+ggsave(filename = paste0("wc_analysis_TweetOcurrences",val,".pdf"),
          path = "./figures/")
 
 print(p)
@@ -524,7 +539,7 @@ ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, " Tweets (Excl
 coord_flip()
 print(p)
 
-ggsave(filename = paste0("general_analysis_CorpusOcurrences",val,".pdf"),
+ggsave(filename = paste0("wc_analysis_CorpusOcurrences",val,".pdf"),
          path = "./figures/")
 
 p = ggplot(dDoc[1:50, ],
@@ -536,7 +551,7 @@ ylab("tweets") +
 ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val, "(Excluding Hashtags)")) +
 coord_flip()
 
-ggsave(filename = paste0("general_analysis_TweetOcurrences",val,".pdf"),
+ggsave(filename = paste0("wc_analysis_TweetOcurrences",val,".pdf"),
          path = "./figures/")
 
 print(p)
@@ -573,134 +588,7 @@ wordcloud(words = d$word, freq = d$freq,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
 rm(dtm_tweets, dtm_all_tweets)
+beepr::beep(sound = 3)
 ```
 
-```{r, iterating over datasets}
-# Iterate to produce the word-clouds all of the datasets one by one
-# SAve the 50 most frequent terms in each dataset
-freq.terms = data.frame()
-for (val in unique(five_g_tweets$src))
-{
-  if(RESAVE_TDMs)
-  {
-    texts = VCorpus(VectorSource(subset(five_g_tweets, src == val)$text))
-    texts = preprocess_texts(texts, val)
-    # Building the term-doc matrix
-    dtm_tweets = TermDocumentMatrix(texts,
-                                    control = list(wordLengths=c(2, Inf)))
-    saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                  paste0(val,"_5G", ".rds")))
-
-    # All tweets now
-    # We don't need to compute salience now
-    
-    # texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
-    # texts = preprocess_texts(texts, val)
-    # # Building the term-doc matrix
-    # dtm_all_tweets = TermDocumentMatrix(texts,
-    #                                     control = list(wordLengths=c(2, Inf)))
-    # saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-    #                                                   paste0(val, ".rds")))
-  } else {
-    # Loading the term-doc matrices
-    dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                          paste0(val,"_5G", ".rds")))
-    # We don't need to compute salience now
-    # dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-    #                                       paste0(val, ".rds")))
-  }
-  
-  m = as.matrix(dtm_tweets)
-  
-  # Corpus counts
-  v = sort(rowSums(m),decreasing=TRUE)
-  d = data.frame(word = names(v),freq=unname(v))
-  
-  # Tweets counts
-  vDoc = sort(rowSums(m > 0),decreasing=TRUE)
-  dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
-  dDoc[, "src"] = val
-  # Append the frequent terms to the repository
-  if(nrow(freq.terms) == 0)
-    freq.terms = dDoc
-  else
-    freq.terms = rbind(freq.terms, dDoc)
-
-  p = ggplot(d[1:50, ],
-       aes(x = reorder(word, freq), y = freq)) +
-  geom_bar(stat = "identity") +
-  xlab("frequent words") +
-  ylab("occurrences") +
-  #easy_rotate_x_labels(angle = 90) +
-  ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "(Excluding Hashtags)")) +
-  coord_flip()
-  
-  ggsave(filename = paste0("general_analysis_CorpusOcurrences",val,".pdf"),
-         path = "./figures/")
-  
-  print(p)
-
-  p = ggplot(dDoc[1:50, ],
-       aes(x = reorder(word, freq), y = freq)) +
-  geom_bar(stat = "identity") +
-  xlab("frequent words") +
-  ylab("tweets") +
-  #easy_rotate_x_labels(angle = 90) +
-  ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in ", val, "(Excluding Hashtags)")) +
-  coord_flip()
-  print(p)
-  rm(p)
-
-  ggsave(filename = paste0("general_analysis_TweetOcurrences",val,".pdf"),
-         path = "./figures/")
-  
-  print("Pearson Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
-  print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
-  
-  print("Salience and conditional probabilities:")
-  # salience = compute_salience(tdm.all = dtm_all_tweets, tdm.5g = dtm_tweets)
-  # Exclude "5g" if there
-  # if("5g" %in% names(salience))
-  #   salience["5g",] = NA
-  # ggplot(data = data.frame(salience),
-  #        aes(x = "Pr.boost",y = rownames(salience))) +
-  #   geom_bar(stat = "identity")
-  
-  # barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
-  #         las = 2, cex.names = 0.7, main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
-  # title(main=ttl, cex.main=0.6)
-  
-  # layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
-  # par(mar=rep(0, 4))
-  # plot.new()
-  # text(x=0.5, y=0.5, val, font = 2, cex = 1)
-  print("Removing 5G and Coronavirus terms")
-  d = d[!d$word %in% c("5g", "coronavirus"), ]
-  wordcloud(words = d$word, freq = d$freq, min.freq = 3,
-            max.words=200, random.order=FALSE, rot.per=0.35,
-            colors=brewer.pal(8, "Dark2"))
-  
-  # NOTE: just for testing purposes while we can run it on the server
-  # if(val == "Feb15")
-  #   break
-}
-
-# Save the frequencies to disk
-DIR_FREQ_PATH = file.path("..", "..", "..",
-                     "Datasets","twitter-sars-cov-2",
-                     "freqterms")
-# saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "freq_terms.rds"))
-
-```
-
-We will calculate the probabilities of a term \(w\) given the term \(5g\):
-
-\[P(w | 5g) = \frac{P(w \cap 5g)}{P(5g)} = \frac{C(tweets_{w\wedge5g})}{C(tweets_{5g})}\]
-
-Where:
-
-\[P(w \cap 5g) = \frac{C(tweets_{w\wedge5g})}{C(tweets_{all})}\]
-\[P(5g) = \frac{C(tweets_{5g})}{C(tweets_{all})}\]
-
----
-
+Word clouds for 5G, n5G, and all tweets are created successfully.
