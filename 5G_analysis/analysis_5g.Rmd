@@ -156,7 +156,6 @@ tweets %>%
                                   big.mark = ","))) +
   theme(text = element_text(size = 14))
 
-knitr::knit_exit()
 ```
 
 
@@ -479,7 +478,7 @@ if("5g" %in% names(salience))
 #   geom_bar(stat = "identity")
   
 barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-        las = 2, cex.names = 0.8,
+        las = 2, cex.names = 1.5, cex.main = 3,
         main ="Top 30 topics whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
 
 # 
@@ -492,14 +491,16 @@ d = d[!d$word %in% c("coronavirus", "5g"), ]
 wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
-rm(dtm_tweets, dtm_all_tweets)
+#rm(dtm_tweets, dtm_all_tweets)
 ```
 
 ```{r, iterating over datasets}
 # Iterate to produce the word-clouds all of the datasets one by one
 # SAve the 50 most frequent terms in each dataset
 freq.terms = data.frame()
-for (val in unique(five_g_tweets$src))
+freq.terms.all = data.frame()
+
+for (val in unique(tweets$src))
 {
   if(RESAVE_INDIVIDUAL_TDMs)
   {
@@ -527,8 +528,24 @@ for (val in unique(five_g_tweets$src))
                                           paste0(val, MAX_SPARSITY,".rds")))
   }
   
-  m = as.matrix(dtm_tweets)
+  # Run all tweets analysis
+  m = as.matrix(dtm_all_tweets)
+  # Corpus counts
+  v = sort(rowSums(m),decreasing=TRUE)
+  d = data.frame(word = names(v),freq=unname(v))
   
+  # Tweets counts
+  vDoc = sort(rowSums(m > 0),decreasing=TRUE)
+  dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
+  dDoc[, "src"] = val
+  # Append the frequent terms to the repository
+  if(nrow(freq.terms.all) == 0)
+    freq.terms.all = dDoc
+  else
+    freq.terms.all = rbind(freq.terms.all, dDoc)
+  
+  # Run 5G analysis
+  m = as.matrix(dtm_tweets)
   # Corpus counts
   v = sort(rowSums(m),decreasing=TRUE)
   d = data.frame(word = names(v),freq=unname(v))
@@ -579,7 +596,8 @@ for (val in unique(five_g_tweets$src))
   #   geom_bar(stat = "identity")
   
   barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-          las = 2, cex.names = 0.7, main ="Top 30 topics whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
+          las = 2, cex.names = 1.5, cex.main = 3,
+          main ="Top 30 topics whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
   # title(main=ttl, cex.main=0.6)
   
   # layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
@@ -591,9 +609,7 @@ for (val in unique(five_g_tweets$src))
             max.words=200, random.order=FALSE, rot.per=0.35,
             colors=brewer.pal(8, "Dark2"))
   
-  # NOTE: just for testing purposes while we can run it on the server
-  # if(val == "Feb15")
-  #   break
+  gc()
 }
 
 # Save the frequencies to disk
@@ -601,10 +617,11 @@ DIR_FREQ_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "freqterms")
 saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "freq_terms.rds"))
+saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "freq_terms_all.rds"))
 
 ```
 
-We will calculate the probabilities of a term \(w\) given the term \(5g\):
+We have calculate the probabilities of a term \(w\) given the term \(5g\):
 
 \[P(w | 5g) = \frac{P(w \cap 5g)}{P(5g)} = \frac{C(tweets_{w\wedge5g})}{C(tweets_{5g})}\]
 
@@ -612,5 +629,91 @@ Where:
 
 \[P(w \cap 5g) = \frac{C(tweets_{w\wedge5g})}{C(tweets_{all})}\]
 \[P(5g) = \frac{C(tweets_{5g})}{C(tweets_{all})}\]
+
+**This is the salience**.
+
+# Evolution Analysis
+
+```{r visulaising evolution function}
+visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
+{
+  # terms_frequencies should be a dataframe of word and frequencies
+  # with factorial source and size of source     
+  if(!is.factor(terms_frequencies$src))
+  {
+    terms_frequencies$src = factor(x = terms_frequencies$src,
+                                   ordered = TRUE,
+                                   levels = c("Feb01", "Feb15", "Mar01", "Mar15",
+                                              "Apr01", "Apr15","May01"))
+  }
+  
+  
+  # Now we will choose the top n words, excluding words that appear 1 time only:
+  topN = terms_frequencies %>%
+    group_by(src) %>%
+    top_n(n = freq_threshold, wt = freq) %>%
+    ungroup
+  
+  # Remove one-time words
+  topN = topN[topN$freq > 1, ]
+  
+  # Get all terms data from the dataset, to revive those which weren't frequent in some of them, so that we study them nonetheless
+  topN = terms_frequencies[terms_frequencies$word %in% topN$word,]
+  
+  # Append the local percentages
+  topN[, "percentage"] = 100*topN$freq/topN$size
+  
+  # Append the global total percentages in all datasets
+  total = topN %>%
+    select(src, size) %>%
+    unique %>%
+    summarise(sum(size)) %>%
+    pull
+  htgsStats = topN %>%
+    group_by(word) %>%
+    summarise(totfreq = sum(freq)) %>%
+    ungroup %>%
+    mutate(tot_percentage = 100*totfreq / total)
+  
+  # Merge the two datasets so that we get all the data in one place
+  topN = merge(x = topN, y=htgsStats)
+  
+  # Re-use the code we have developed before for mere terms on the hashtags:
+  evol_plot = topN %>%
+    mutate(source = factor(topN$src,
+                           levels = rev(levels(topN$src)))) %>%
+    ggplot(data=.,
+           aes(y = reorder(
+             paste0(word, " (",round(tot_percentage,2),"%)")
+             , tot_percentage),
+               x=percentage, fill=source)) +
+    geom_bar(stat="identity", position = "fill", colour = "black") +
+    xlab("occurring percentage of terms in releavant tweet datasets") +
+    ylab("hashtag") +
+    ggtitle(paste("Percentage compositions of the top",
+                  freq_threshold,
+                  "hashtags in",label,"tweets across datasets and how they evolve"),
+            subtitle = "Numbers in parantheses are total percentage of tweets containing the tag in all datasets combined") +
+    guides(fill = guide_legend(reverse = T, override.aes=list(shape=21))) +
+    scale_fill_manual(values = c("#381A15","#5E3341","#6C5979","#5489A5",
+                                 "#36B8B0","#77E197","#E4FE75")) +
+    theme(text = element_text(size = 14))
+  
+  ggsave(filename = paste0("Adjacent_Evolution_", label, ".pdf"),
+         path = "./figures/", device = "pdf")
+  print(evol_plot)
+  
+  gc()
+  return(topN)
+}
+```
+
+```{r visualising evolution, fig.width=10, fig.height=15}
+retAll = visualise_evolution(terms_frequencies = freq.terms.all, label = "All",
+                          freq_threshold = 15)
+ret5G = visualise_evolution(terms_frequencies = freq.terms, label = "5G",
+                          freq_threshold = 15)
+```
+
 
 ---
