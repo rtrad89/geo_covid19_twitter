@@ -475,6 +475,7 @@ print("Combined TDMS are created")
 After we remove any terms which are sparse more than 98% of the times, we separate the two datasets to control for confounding effects.
 
 ```{r Make the wordclouds of all the data, 5G and n5G}
+val = "all"
 print(paste("Due to technical problems, we are removing terms whose sparsity exceed", MAX_SPARSITY ,"but in 5G datasets"))
 dtm_all_tweets = removeSparseTerms(x = dtm_all_tweets, sparse = MAX_SPARSITY)
 
