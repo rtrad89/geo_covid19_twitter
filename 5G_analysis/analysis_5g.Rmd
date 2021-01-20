@@ -463,7 +463,7 @@ coord_flip()
 print(p)
 rm(p)
 
-print("Pearson Correlation among 5g and other terms (threshold = 0.1):")
+print("Pearson Correlation among 5g and other topics (threshold = 0.1):")
 print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
 
 set.seed(13712)
@@ -480,7 +480,7 @@ if("5g" %in% names(salience))
   
 barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
         las = 2, cex.names = 0.8,
-        main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
+        main ="Top 30 topics whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
 
 # 
 # layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
@@ -565,7 +565,7 @@ for (val in unique(five_g_tweets$src))
   rm(p)
 
   
-  print("Pearson Correlation scores among 5g term and other terms, with a strength of 0.2 and above:")
+  print("Pearson Correlation scores among 5g term and other topics, with a strength of 0.2 and above:")
   print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .2))
   
   print("Salience and conditional probabilities after sufficing with 99% sparsity:")
@@ -579,7 +579,7 @@ for (val in unique(five_g_tweets$src))
   #   geom_bar(stat = "identity")
   
   barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-          las = 2, cex.names = 0.7, main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
+          las = 2, cex.names = 0.7, main ="Top 30 topics whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
   # title(main=ttl, cex.main=0.6)
   
   # layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
