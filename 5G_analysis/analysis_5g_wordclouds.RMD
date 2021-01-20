@@ -474,11 +474,57 @@ print("Combined TDMS are created")
 
 After we remove any terms which are sparse more than 98% of the times, we separate the two datasets to control for confounding effects.
 
-```{r unpacking combined data}
-# Removing sparsity!
-val = "non_5G"
+```{r Make the wordclouds of all the data, 5G and n5G}
 print(paste("Due to technical problems, we are removing terms whose sparsity exceed", MAX_SPARSITY ,"but in 5G datasets"))
 dtm_all_tweets = removeSparseTerms(x = dtm_all_tweets, sparse = MAX_SPARSITY)
+
+m <- as.matrix(dtm_all_tweets)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=unname(v))
+
+vDoc = sort(rowSums(m > 0),decreasing=TRUE)
+dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
+
+p = ggplot(d[1:50, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("occurrences") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in Tweets (Excluding Hashtags)")) +
+coord_flip()
+print(p)
+
+ggsave(filename = paste0("wc_analysis_CorpusOcurrences",val,".pdf"),
+         path = "./figures/")
+
+p = ggplot(dDoc[1:50, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("tweets") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in Tweets (Excluding Hashtags)")) +
+coord_flip()
+
+ggsave(filename = paste0("wc_analysis_TweetOcurrences",val,".pdf"),
+         path = "./figures/")
+
+print(p)
+rm(p)
+
+print("removing coronavirus term: done")
+d = d[!d$word == "coronavirus", ]
+wordcloud(words = d$word, freq = d$freq,
+          min.freq = 3, random.order=FALSE,
+          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+rm(m, v, d, dDoc, vDoc)
+gc()
+```
+
+
+```{r unpacking combined data -- n5G}
+val = "non_5G"
 dtm_n5g_tweets = removeSparseTerms(x = dtm_n5g_tweets, sparse = MAX_SPARSITY)
 
 # Make the general wordcloud for non 5g terms
@@ -508,7 +554,7 @@ geom_bar(stat = "identity") +
 xlab("frequent words") +
 ylab("tweets") +
 #easy_rotate_x_labels(angle = 90) +
-ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in in Non-5G Tweets (Excluding Hashtags)")) +
+ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in Non-5G Tweets (Excluding Hashtags)")) +
 coord_flip()
 
 ggsave(filename = paste0("wc_analysis_TweetOcurrences",val,".pdf"),
@@ -523,7 +569,10 @@ wordcloud(words = d$word, freq = d$freq,
           min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 rm(m, v, d, dDoc, vDoc)
+gc()
+```
 
+```{r create wordclouds of 5G}
 # Make the wordclouds of 5G only
 
 val = "5G"
@@ -567,25 +616,7 @@ print(findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1))
 
 set.seed(13712)
 
-print("Salience and conditional probabilities: on the lab report due to RAM")
-# salience = compute_salience(tdm.all = dtm_all_tweets,
-                            # tdm.5g = removeSparseTerms(dtm_tweets, sparse = 0.99))
-# Exclude "5g" if there
-# if("5g" %in% names(salience))
-#   salience["5g",] = NA
-# ggplot(data = data.frame(salience),
-#        aes(x = "Pr.boost",y = rownames(salience))) +
-#   geom_bar(stat = "identity")
-  
-# barplot(sort(salience[, "Pr.boost"], decreasing = T)[0:30],
-#         las = 2, cex.names = 0.8,
-#         main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob.")
 
-# 
-# layout(matrix(c(1, 2), nrow=2), heights=c(10, 90))
-# par(mar=rep(0, 4))
-# plot.new()
-# text(x=0.5, y=0.5, val, font = 2, cex = 1)
 print("removing 5G and coronavirus terms done")
 d = d[!d$word %in% c("5g", "coronavirus"), ]
 wordcloud(words = d$word, freq = d$freq,
