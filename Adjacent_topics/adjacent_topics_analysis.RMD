@@ -502,12 +502,19 @@ barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
 We will run the same analysis on each dataset, studying non-5G tweets first then 5G.
 
 ```{r}
+freq = data.frame()
 freq.n5g = data.frame()
 freq.5g = data.frame()
 
-for(val in unique(tweets.n5g$src))
+for(val in unique(tweets$src))
 {
   print(paste("Studying", val, "dataset..."))
+  print("All:")
+  # Filter the dataset and load it into our modeller
+  termfreq = vsm_modeller(data = subset(tweets, subset = src==val),
+                              RESAVE_TDMs = TRUE, val = val, is5G = NA,
+                              sparsity_threshold = MAX_SPARSITY)[3]$termfreqs
+  
   print("Non-5G:")
   # Filter the dataset and load it into our modeller
   termfreq.n5g = vsm_modeller(data = subset(tweets.n5g, subset = src==val),
@@ -519,6 +526,13 @@ for(val in unique(tweets.n5g$src))
                              sparsity_threshold = NA)[3]$termfreqs
   
   # Append the freqs to the global evolution matrix
+  termfreq[, "src"] = val
+  termfreq[, "size"] = nrow(subset(tweets, subset = src==val))
+  if(nrow(freq.n5g) == 0)
+    freq = termfreq
+  else
+    freq = rbind(freq, termfreq)  
+  
   termfreq.n5g[, "src"] = val
   termfreq.n5g[, "size"] = nrow(subset(tweets.n5g, subset = src==val))
   if(nrow(freq.n5g) == 0)
@@ -532,11 +546,12 @@ for(val in unique(tweets.n5g$src))
     freq.5g = termfreq.5g
   else
     freq.5g = rbind(freq.5g, termfreq.5g)
-
 }
 ```
 
 ```{r evolution visualisation}
+topN.all = visualise_evolution(terms_frequencies = freq, freq_threshold = 15,
+                               label = "All")
 topN.n5g = visualise_evolution(terms_frequencies = freq.n5g, freq_threshold = 15,
                                label = "Non-5G")
 topN.5g = visualise_evolution(terms_frequencies = freq.5g, freq_threshold = 15,
