@@ -125,7 +125,7 @@ As we found that English tweets pervade the datasets, we sufficed with them. Inc
 
 Previewing the data:
 
-```{r}
+```{r general plots, fig.width=5, fig.height=5}
 # TODO change the scale itself rather than rounding
 # cf. https://stackoverflow.com/questions/52602503/display-an-axis-value-in-millions-in-ggplot
 plot_tweets = 
@@ -138,7 +138,8 @@ plot_tweets =
   ylim(0, 2100000) +
   ggtitle("Number of original Eng tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N = ",
-                           format(nrow(tweets),big.mark = ",")))
+                           format(nrow(tweets),big.mark = ","))) +
+  theme(text = element_text(size = 14))
 
 print(plot_tweets)
   
@@ -148,11 +149,14 @@ tweets %>%
   summarise(n_users = n_distinct(user_screen_name)) %>%
   ggplot(., aes(y = n_users, x = src)) +
   geom_bar(stat = "identity") +
-  geom_label(aes(label=format(n_users, big.mark = ","))) +
+  geom_label(aes(label=format(n_users, big.mark = ",")), size = 3) +
   ggtitle("Number of users of original Eng tweets",
           subtitle = paste("Re-tweets were excluded; N = ",
                            format(n_distinct(tweets$user_screen_name),
-                                  big.mark = ",")))
+                                  big.mark = ","))) +
+  theme(text = element_text(size = 14))
+
+knitr::knit_exit()
 ```
 
 
@@ -336,13 +340,15 @@ plt1 =
   geom_bar() +
   geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
                                             big.mark = ",")),
-             size = 3, vjust = 0.0) +
+             size = 4, vjust = 0.0) +
   ggtitle("Number of non-5G tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N =",
                            format(nrow(subset(tweets, !five_g)), big.mark=","))) +
   ylim(0, 2100000) +
   easy_remove_y_axis() +
-  easy_text_size(which = "plot.title", size = 12)
+  theme(text = element_text(size = 16)) +
+  easy_text_size(which = "plot.title", size = 13) +
+  easy_text_size(which = "plot.subtitle", size = 12)
 
 plt2 = 
   tweets %>%
@@ -352,13 +358,15 @@ plt2 =
   geom_bar() +
   geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
                                             big.mark = ",")),
-             size = 3, vjust = 0.0) +
+             size = 4, vjust = 0.0) +
   ggtitle("Number of 5G tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N =",
                            format(nrow(subset(tweets, five_g)),big.mark=","))) +
   ylim(0, 2100000) +
-  easy_remove_y_axis() +
-  easy_text_size(which = "plot.title", size = 12)
+  easy_remove_y_axis()  +
+  theme(text = element_text(size = 16)) +
+  easy_text_size(which = "plot.title", size = 13) +
+  easy_text_size(which = "plot.subtitle", size = 12)
 
 mddl_row = plot_grid(plt1, plt2)
 
@@ -374,7 +382,9 @@ plt3 =
   ggtitle("Percentage of 5G tweets hydrated",
           subtitle = paste("Re-tweets were excluded; N =",
                            format(nrow(tweets), big.mark = ",")))+
-  easy_remove_y_axis()
+  easy_remove_y_axis() +
+  easy_text_size(which = "plot.title", size = 13) +
+  easy_text_size(which = "plot.subtitle", size = 12)
 
 plot_grid(plot_tweets + easy_remove_y_axis(),
           mddl_row,

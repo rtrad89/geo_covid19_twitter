@@ -512,7 +512,7 @@ for(val in unique(tweets$src))
   print("All:")
   # Filter the dataset and load it into our modeller
   termfreq = vsm_modeller(data = subset(tweets, subset = src==val),
-                              RESAVE_TDMs = TRUE, val = val, is5G = NA,
+                              RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = NA,
                               sparsity_threshold = MAX_SPARSITY)[3]$termfreqs
   
   print("Non-5G:")
