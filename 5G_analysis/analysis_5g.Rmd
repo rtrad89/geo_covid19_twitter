@@ -540,6 +540,7 @@ for (val in unique(tweets$src))
   vDoc = sort(rowSums(m > 0),decreasing=TRUE)
   dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
   dDoc[, "src"] = val
+  dDoc[, "size"] = nrow(subset(tweets, src == val))
   # Append the frequent terms to the repository
   if(nrow(freq.terms.all) == 0)
     freq.terms.all = dDoc
@@ -556,6 +557,7 @@ for (val in unique(tweets$src))
   vDoc = sort(rowSums(m > 0),decreasing=TRUE)
   dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
   dDoc[, "src"] = val
+  dDoc[, "size"] = nrow(subset(five_g_tweets, src == val))
   # Append the frequent terms to the repository
   if(nrow(freq.terms) == 0)
     freq.terms = dDoc
