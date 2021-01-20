@@ -182,27 +182,27 @@ if (file.exists(file.path(".", "usn_statistics.csv")))
   write.csv(usn, file = file.path(".", "usn_statistics.csv"),
             row.names = FALSE)
 }
-
-# Visualise
-# TODO: combine these plots into smaller grid ones
-for (val in unique(usn$src))
-{
-  data = usn %>% filter(src == val)
-  
-  data %>%
-    select(user_screen_name, n)
-  plt =
-    ggplot(data, aes(x = reorder(user_screen_name, -n), y=n)) +
-    geom_bar(stat = "identity") +
-    ggtitle(paste("Top 25 tweeting frequencies by users in", val)) +
-    xlab("users") +
-    ylim(0, 7500) +
-    easy_remove_x_axis(what = "text")
-    
-
-  print(plt)
-  rm(plt)
-}
+# 
+# # Visualise
+# # TODO: combine these plots into smaller grid ones
+# for (val in unique(usn$src))
+# {
+#   data = usn %>% filter(src == val)
+#   
+#   data %>%
+#     select(user_screen_name, n)
+#   plt =
+#     ggplot(data, aes(x = reorder(user_screen_name, -n), y=n)) +
+#     geom_bar(stat = "identity") +
+#     ggtitle(paste("Top 25 tweeting frequencies by users in", val)) +
+#     xlab("users") +
+#     ylim(0, 7500) +
+#     easy_remove_x_axis(what = "text")
+#     
+# 
+#   print(plt)
+#   rm(plt)
+# }
 
 ```
 
@@ -529,6 +529,8 @@ for (val in unique(tweets$src))
   }
   
   # Run all tweets analysis
+  print(paste0("Sustaining less than ", 100*MAX_SPARSITY, "% sprsity"))
+  dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
   m = as.matrix(dtm_all_tweets)
   # Corpus counts
   v = sort(rowSums(m),decreasing=TRUE)
@@ -710,9 +712,9 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
 
 ```{r visualising evolution, fig.width=10, fig.height=15}
 retAll = visualise_evolution(terms_frequencies = freq.terms.all, label = "All",
-                          freq_threshold = 15)
+                          freq_threshold = 10)
 ret5G = visualise_evolution(terms_frequencies = freq.terms, label = "5G",
-                          freq_threshold = 15)
+                          freq_threshold = 10)
 ```
 
 

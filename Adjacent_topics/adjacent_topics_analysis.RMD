@@ -550,11 +550,11 @@ for(val in unique(tweets$src))
 ```
 
 ```{r evolution visualisation}
-topN.all = visualise_evolution(terms_frequencies = freq, freq_threshold = 15,
+topN.all = visualise_evolution(terms_frequencies = freq, freq_threshold = 10,
                                label = "All")
-topN.n5g = visualise_evolution(terms_frequencies = freq.n5g, freq_threshold = 15,
+topN.n5g = visualise_evolution(terms_frequencies = freq.n5g, freq_threshold = 10,
                                label = "Non-5G")
-topN.5g = visualise_evolution(terms_frequencies = freq.5g, freq_threshold = 15,
+topN.5g = visualise_evolution(terms_frequencies = freq.5g, freq_threshold = 10,
                               label = "5G")
 
 beepr::beep(3)
