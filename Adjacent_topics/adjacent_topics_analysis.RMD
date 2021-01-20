@@ -320,8 +320,8 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
           subtitle = mySubTitle) +
   coord_flip()
   print(p)
-  ggsave(filename = paste0(rds_prefname, val, ifelse(is5G, "_5G", "_n5G"), ".pdf"),
-         path = "./figures/", device = "pdf")
+  #ggsave(filename = paste0(rds_prefname, val, ifelse(is5G, "_5G", "_n5G"), ".pdf"),
+  #       path = "./figures/", device = "pdf")
   rm(p)
   
   print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
@@ -485,7 +485,7 @@ The current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_
 
 We will compute the salience of 5G tweets in our full dataset.
 
-```{r compute the salince, fig.width=5, fig.height=5}
+```{r compute the salince, fig.width=8, fig.height=5}
 salience = compute_salience(tdm.all = dtm_all$pruned, tdm.5g = dtm_htgs$pruned)
 
 # Exclude "5g" if there
@@ -493,7 +493,7 @@ if("5g" %in% rownames(salience))
   salience["5g",] = NA
   
 barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-        las = 2, cex.names = 1.5
+        las = 2, cex.names = 0.8
         # , cex.main = 3,
         # main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob."
         )
