@@ -43,7 +43,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 
-RESAVE_TDMs = TRUE # TRUE takes a LOT of time!
+RESAVE_TDMs = FALSE # TRUE takes a LOT of time!
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -139,17 +139,17 @@ print(table(tweets$src))
 ```{r functions for preprocessing}
 # Unify coronavirus synonyms
 # Pay attention that the order is critical
-coronavirus_synonyms = c("corona virus",
-                         "covid 19",
-                         "covid19",
-                         "coronavirus19",
-                         "covid",
-                         "corona ",
-                         "corona",
-                         "sarscov2",
-                         "ncov",
-                         "ncov2019",
-                         "2019ncov")
+coronavirus_synonyms = c("coronavirus19",
+                        "corona virus",
+                        "covid 19",
+                        "sarscov2",
+                        "ncov2019",
+                        "2019ncov",
+                        "covid19",
+                        "corona ",
+                        "corona",
+                        "covid",
+                        "ncov")
 
 unify_coronavirus = function(x)
 {
