@@ -43,7 +43,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 
-RESAVE_TDMs = FALSE # TRUE takes a LOT of time!
+RESAVE_TDMs = TRUE # TRUE takes a LOT of time!
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -146,7 +146,10 @@ coronavirus_synonyms = c("corona virus",
                          "covid",
                          "corona ",
                          "corona",
-                         "sarscov2")
+                         "sarscov2",
+                         "ncov",
+                         "ncov2019",
+                         "2019ncov")
 
 unify_coronavirus = function(x)
 {
@@ -224,7 +227,8 @@ preprocess_hashtags = function(texts, marker)
 vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
                         rds_prefname = "Adjacent_Topics",
                         sparsity_threshold = NA,
-                        corrterm = "coronavirus")
+                        corrterm = "coronavirus",
+                        remove_corona_5g_tokens = TRUE)
 {
   # 5G Suffix
   if(is.na(is5G))
@@ -301,14 +305,19 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   # coord_flip()
   # print(p)
   
-  if(!is.na(is5G) & is5G)
+  if(remove_corona_5g_tokens)
   {
-    dDoc = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ] # Skip coronavirus and 5G terms
-    mySubTitle = "'Coronavirus' and '5G' are skipped."
-  } else {
-    dDoc = dDoc[!dDoc$word == "coronavirus", ] # Skip coronavirus terms
-    mySubTitle = "'Coronavirus' is skipped."
+    if(!is.na(is5G) & is5G)
+    {
+      dDoc = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ] # Skip coronavirus and 5G terms
+      mySubTitle = "'Coronavirus' and '5G' are skipped."
+    } else {
+      dDoc = dDoc[!dDoc$word == "coronavirus", ] # Skip coronavirus terms
+      mySubTitle = "'Coronavirus' is skipped."
+    }
   }
+  else
+    mySubTitle = "All tokens are included."
   
   p = ggplot(dDoc[1:25, ],
        aes(x = reorder(word, freq), y = freq)) +
@@ -516,17 +525,20 @@ for(val in unique(tweets$src))
   # Filter the dataset and load it into our modeller
   termfreq = vsm_modeller(data = subset(tweets, subset = src==val),
                               RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = NA,
-                              sparsity_threshold = MAX_SPARSITY)[3]$termfreqs
+                              sparsity_threshold = MAX_SPARSITY,
+                          remove_corona_5g_tokens = FALSE)[3]$termfreqs
   
   print("Non-5G:")
   # Filter the dataset and load it into our modeller
   termfreq.n5g = vsm_modeller(data = subset(tweets.n5g, subset = src==val),
                               RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = FALSE,
-                              sparsity_threshold = MAX_SPARSITY)[3]$termfreqs
+                              sparsity_threshold = MAX_SPARSITY,
+                              remove_corona_5g_tokens = FALSE)[3]$termfreqs
   print("5G:")
   termfreq.5g = vsm_modeller(data = subset(tweets.5g, subset = src==val),
                              RESAVE_TDMs = RESAVE_TDMs, val = val, is5G = TRUE,
-                             sparsity_threshold = NA)[3]$termfreqs
+                             sparsity_threshold = NA,
+                             remove_corona_5g_tokens = FALSE)[3]$termfreqs
   
   # Append the freqs to the global evolution matrix
   termfreq[, "src"] = val
