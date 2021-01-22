@@ -224,8 +224,14 @@ unify_5g2 = function(x) gsub("\\b5g\\b", " 5g ", x)
 
 # Unify coronavirus synonyms
 # Pay attention that the order is critical
-coronavirus_synonyms = c("corona virus","covid 19", "covid19", "coronavirus19",
-                         "covid", "coronavirusoutbreak", "corona ")
+coronavirus_synonyms = c("coronavirusoutbreak",
+                        "coronavirus19",
+                        "corona virus",
+                        "covid 19",
+                        "covid19",
+                        "corona "
+                        "covid")
+
 unify_coronavirus = function(x)
 {
   stringi::stri_replace_all_fixed(str = x,

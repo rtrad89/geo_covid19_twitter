@@ -515,8 +515,8 @@ print(p)
 rm(p)
 
 print("removing coronavirus term: done")
-d = d[!d$word == "coronavirus", ]
-wordcloud(words = d$word, freq = d$freq,
+dDoc = dDoc[!dDoc$word == "coronavirus", ]
+wordcloud(words = dDoc$word, freq = dDoc$freq,
           min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 rm(m, v, d, dDoc, vDoc)
@@ -565,8 +565,8 @@ print(p)
 rm(p)
 
 print("removing coronavirus term: done")
-d = d[!d$word == "coronavirus", ]
-wordcloud(words = d$word, freq = d$freq,
+dDoc = dDoc[!dDoc$word == "coronavirus", ]
+wordcloud(words = dDoc$word, freq = dDoc$freq,
           min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 rm(m, v, d, dDoc, vDoc)
@@ -619,8 +619,8 @@ set.seed(13712)
 
 
 print("removing 5G and coronavirus terms done")
-d = d[!d$word %in% c("5g", "coronavirus"), ]
-wordcloud(words = d$word, freq = d$freq,
+dDoc = dDoc[!dDoc$word %in% c("5g", "coronavirus"), ]
+wordcloud(words = dDoc$word, freq = dDoc$freq,
           min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
