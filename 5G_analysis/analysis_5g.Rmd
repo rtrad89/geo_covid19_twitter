@@ -128,18 +128,24 @@ Previewing the data:
 ```{r general plots, fig.width=8, fig.height=5}
 # TODO change the scale itself rather than rounding
 # cf. https://stackoverflow.com/questions/52602503/display-an-axis-value-in-millions-in-ggplot
+tots = tweets %>%
+  group_by(src) %>%
+  count() %>%
+  rename(total = n)
+
 plot_tweets = 
   tweets %>%
-  group_by(src) %>%
-  count(src) %>%
-  ggplot(., aes(y = n, x = src)) +
+  group_by(src, tagged=!is.na(hashtags)) %>%
+  count() %>%
+  ggplot(., aes(y = n, x = src, fill=tagged)) +
   geom_bar(stat = "identity") +
-  geom_label(aes(label=format(round(n/1000, 1), big.mark = ","))) +
-  ylim(0, 2100000) +
+  ylim(0, 1500000) +
   ggtitle("Number of original Eng tweets hydrated (in Thousands)",
-          subtitle = paste("Re-tweets were excluded; N = ",
+          subtitle = paste("Re-tweets were excluded; tagged portions are black; N = ",
                            format(nrow(tweets),big.mark = ","))) +
-  theme(text = element_text(size = 14))
+  scale_fill_manual(values = c("FALSE"="#595959", "TRUE"="black")) +
+  theme(text = element_text(size = 16), legend.position = "none") +
+  geom_label(aes(src, total, fill=NULL, label=format(round(total/1000, 1), big.mark = ",")), data=tots, vjust=-0.2, size=5)
 
 print(plot_tweets)
   
@@ -229,7 +235,7 @@ coronavirus_synonyms = c("coronavirusoutbreak",
                         "corona virus",
                         "covid 19",
                         "covid19",
-                        "corona "
+                        "corona ",
                         "covid")
 
 unify_coronavirus = function(x)
@@ -397,6 +403,7 @@ plot_grid(plot_tweets + easy_remove_y_axis(),
           ncol = 1)
 
 rm(plot_tweets, plt1, plt2, plt3, mddl_row)
+knitr::knit_exit()
 ```
 
 Concentrating on 5g Tweets after preprocessing:
