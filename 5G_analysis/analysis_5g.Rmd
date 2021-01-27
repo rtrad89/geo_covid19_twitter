@@ -41,7 +41,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
-RESAVE_INDIVIDUAL_TDMs = FALSE # For individual datasets
+RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -547,9 +547,9 @@ for (val in unique(tweets$src))
   } else {
     # Loading the term-doc matrices
     dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                          paste0(val,"_5G", MAX_SPARSITY,".rds")))
-    dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                          paste0(val, MAX_SPARSITY,".rds")))
+                                                  paste0(val,"_pure_5G", MAX_SPARSITY,".rds")))
+    dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH, "_pure_",
+                                                      paste0(val, MAX_SPARSITY,".rds")))
   }
   
   # Run all tweets analysis
