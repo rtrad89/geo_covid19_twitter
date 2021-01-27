@@ -409,7 +409,7 @@ plot_grid(plot_tweets + easy_remove_y_axis(),
           ncol = 1)
 
 rm(plot_tweets, plt1, plt2, plt3, mddl_row)
-knitr::knit_exit()
+# knitr::knit_exit()
 ```
 
 Concentrating on 5g Tweets after preprocessing:
@@ -518,7 +518,7 @@ barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
 ```
 
 
-```{r, iterating over datasets}
+```{r iterating over datasets}
 # Iterate to produce the word-clouds all of the datasets one by one
 # SAve the 50 most frequent terms in each dataset
 freq.terms = data.frame()
@@ -542,18 +542,18 @@ for (val in unique(tweets$src))
     # Building the term-doc matrix
     dtm_all_tweets = TermDocumentMatrix(texts,
                                         control = list(wordLengths=c(2, Inf)))
-    saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH, "_pure_",
-                                                      paste0(val, MAX_SPARSITY,".rds")))
+    saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
+                                                      paste0("_pure_", val, MAX_SPARSITY,".rds")))
   } else {
     # Loading the term-doc matrices
     dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
                                                   paste0(val,"_pure_5G", MAX_SPARSITY,".rds")))
-    dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH, "_pure_",
-                                                      paste0(val, MAX_SPARSITY,".rds")))
+    dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
+                                                      paste0("_pure_", val, MAX_SPARSITY,".rds")))
   }
   
   # Run all tweets analysis
-  print(paste0("Sustaining less than ", 100*MAX_SPARSITY, "% sprsity"))
+  print(paste0("Sustaining less than ", 100*MAX_SPARSITY, "% sparsity"))
   dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
   m = as.matrix(dtm_all_tweets)
   # Corpus counts
@@ -634,7 +634,7 @@ for (val in unique(tweets$src))
   # par(mar=rep(0, 4))
   # plot.new()
   # text(x=0.5, y=0.5, val, font = 2, cex = 1)
-  d = d[!d$word %in% c("coronavirus", "5g"), ]
+  d = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ]
   wordcloud(words = d$word, freq = d$freq, min.freq = 3,
             max.words=200, random.order=FALSE, rot.per=0.35,
             colors=brewer.pal(8, "Dark2"))
@@ -647,7 +647,7 @@ DIR_FREQ_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "freqterms")
 saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms.rds"))
-saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms_all.rds"))
+saveRDS(object = freq.terms.all, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms_all.rds"))
 
 ```
 
