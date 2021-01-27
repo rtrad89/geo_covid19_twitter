@@ -1,7 +1,7 @@
 ---
 title: "5G Analysis of COVID-19 Tweets"
 author: "RTRAD"
-date: "10/11/2020"
+date: "`r Sys.Date()`"
 output: 
   html_document: 
     fig_width: 10

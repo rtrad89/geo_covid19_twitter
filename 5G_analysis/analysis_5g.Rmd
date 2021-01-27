@@ -1,7 +1,7 @@
 ---
 title: "5G Analysis of COVID-19 Tweets"
 author: "RTRAD"
-date: "10/11/2020"
+date: "`r Sys.Date()`"
 output: 
   html_document: 
     fig_width: 10
@@ -141,11 +141,11 @@ plot_tweets =
   geom_bar(stat = "identity") +
   ylim(0, 1500000) +
   ggtitle("Number of original Eng tweets hydrated (in Thousands)",
-          subtitle = paste("Re-tweets were excluded; tagged portions are black; N = ",
+          subtitle = paste("Re-tweets were excluded; tagged portions are green; N = ",
                            format(nrow(tweets),big.mark = ","))) +
-  scale_fill_manual(values = c("FALSE"="#595959", "TRUE"="black")) +
+  scale_fill_manual(values = c("FALSE"="#595959", "TRUE"="#77E197")) +
   theme(text = element_text(size = 16), legend.position = "none") +
-  geom_label(aes(src, total, fill=NULL, label=format(round(total/1000, 1), big.mark = ",")), data=tots, vjust=-0.2, size=5)
+  geom_label(aes(src, total, fill=NULL, label=format(round(total/1000, 1), big.mark = ",")), data=tots, vjust=-0.1, size=5)
 
 print(plot_tweets)
   
@@ -155,7 +155,8 @@ tweets %>%
   summarise(n_users = n_distinct(user_screen_name)) %>%
   ggplot(., aes(y = n_users, x = src)) +
   geom_bar(stat = "identity") +
-  geom_label(aes(label=format(n_users, big.mark = ",")), size = 3) +
+  ylim(0, 850000) +
+  geom_label(aes(label=format(n_users, big.mark = ",")), size = 4, vjust =-0.1) +
   ggtitle("Number of users of original Eng tweets",
           subtitle = paste("Re-tweets were excluded; N = ",
                            format(n_distinct(tweets$user_screen_name),
@@ -266,9 +267,9 @@ preprocess_texts = function(texts, marker)
   texts  = tm_map(texts, content_transformer(tolower))
   print(paste("Lowercasing done for dataset:", marker))
   
-  # # Remove hash-tags
-  # texts = tm_map(texts, content_transformer(replace_hash))
-  # print(paste("Hashtags removed from dataset:", marker))
+  # Remove hash-tags
+  texts = tm_map(texts, content_transformer(replace_hash))
+  print(paste("Hashtags removed from dataset:", marker))
   
   # Replace punctuation with spaces
   texts = tm_map(texts, replacePunctuation)
@@ -351,7 +352,7 @@ plt1 =
   geom_bar() +
   geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
                                             big.mark = ",")),
-             size = 4, vjust = 0.0) +
+             size = 4, vjust = -0.1) +
   ggtitle("Number of non-5G tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N =",
                            format(nrow(subset(tweets, !five_g)), big.mark=","))) +
@@ -369,7 +370,7 @@ plt2 =
   geom_bar() +
   geom_label(stat='count', aes(label=format(round(after_stat(count)/1000, 1),
                                             big.mark = ",")),
-             size = 4, vjust = 0.0) +
+             size = 4, vjust = -0.1) +
   ggtitle("Number of 5G tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; N =",
                            format(nrow(subset(tweets, five_g)),big.mark=","))) +
@@ -387,12 +388,17 @@ plt3 =
   summarise(fraction = sum(five_g)/n()) %>%
   ggplot(., aes(x = src, y = fraction)) +
   geom_bar(stat = "identity") +
-  geom_text(stat="identity", aes(label=paste0(round(100*fraction, 2), "%")),
-            size = 5, hjust = 0.5, vjust = 1,
-            position = position_dodge2(width = 0), colour = "white") +
+  # geom_text(stat="identity", aes(label=paste0(round(100*fraction, 2), "%")),
+  #           size = 5, hjust = 0.5, vjust = 1,
+  #           position = position_dodge2(width = 0), colour = "white") +
+  ylim(0, 0.002) +
+  geom_label(stat='identity', aes(label=paste0(round(100*fraction, 2), "%")),
+             size = 5, vjust = -0.1) +
   ggtitle("Percentage of 5G tweets hydrated",
-          subtitle = paste("Re-tweets were excluded; N =",
-                           format(nrow(tweets), big.mark = ",")))+
+          subtitle = paste0("Re-tweets were excluded; Overall percentage = ",
+                           round(100 * as.numeric(smry["TRUE"]) / nrow(tweets),2),
+                           "%"))+
+  theme(text = element_text(size = 16))+
   easy_remove_y_axis() +
   easy_text_size(which = "plot.title", size = 13) +
   easy_text_size(which = "plot.subtitle", size = 12)
@@ -426,7 +432,7 @@ if(RESAVE_TDMs)
   dtm_tweets = TermDocumentMatrix(texts,
                                   control = list(wordLengths=c(2, Inf)))
   saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"_5G",
+                                                paste0(val,"_pure_5G",
                                                        MAX_SPARSITY,".rds")))
   
   # MEMORY INSUFFICIENT!
@@ -436,15 +442,16 @@ if(RESAVE_TDMs)
   dtm_all_tweets = TermDocumentMatrix(all_texts,
                                       control = list(wordLengths=c(2, Inf)))
   saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val, MAX_SPARSITY,".rds")))
+                                                paste0(val, "_pure_",MAX_SPARSITY,".rds")))
   
 } else {
   
   # Load the TDM
   dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                        paste0(val,"_5G", MAX_SPARSITY,".rds")))
+                                                paste0(val,"_pure_5G",
+                                                       MAX_SPARSITY,".rds")))
   dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                           paste0(val, MAX_SPARSITY,".rds")))
+                                                paste0(val, "_pure_",MAX_SPARSITY,".rds")))
 }
 
 m <- as.matrix(dtm_tweets)
@@ -527,7 +534,7 @@ for (val in unique(tweets$src))
     dtm_tweets = TermDocumentMatrix(texts,
                                     control = list(wordLengths=c(2, Inf)))
     saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                  paste0(val,"_5G", MAX_SPARSITY,".rds")))
+                                                  paste0(val,"_pure_5G", MAX_SPARSITY,".rds")))
 
     # All tweets now
     texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
@@ -535,7 +542,7 @@ for (val in unique(tweets$src))
     # Building the term-doc matrix
     dtm_all_tweets = TermDocumentMatrix(texts,
                                         control = list(wordLengths=c(2, Inf)))
-    saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
+    saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH, "_pure_",
                                                       paste0(val, MAX_SPARSITY,".rds")))
   } else {
     # Loading the term-doc matrices
@@ -639,8 +646,8 @@ for (val in unique(tweets$src))
 DIR_FREQ_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "freqterms")
-saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "freq_terms.rds"))
-saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "freq_terms_all.rds"))
+saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms.rds"))
+saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms_all.rds"))
 
 ```
 
