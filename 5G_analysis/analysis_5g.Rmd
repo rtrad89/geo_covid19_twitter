@@ -41,7 +41,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
-RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
+RESAVE_INDIVIDUAL_TDMs = FALSE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -138,7 +138,7 @@ plot_tweets =
   group_by(src, tagged=!is.na(hashtags)) %>%
   count() %>%
   ggplot(., aes(y = n, x = src, fill=tagged)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", color="#595959") +
   ylim(0, 1500000) +
   ggtitle("Number of original Eng tweets hydrated (in Thousands)",
           subtitle = paste("Re-tweets were excluded; tagged portions are green; N = ",
@@ -162,7 +162,6 @@ tweets %>%
                            format(n_distinct(tweets$user_screen_name),
                                   big.mark = ","))) +
   theme(text = element_text(size = 14))
-
 ```
 
 
@@ -212,8 +211,6 @@ if (file.exists(file.path(".", "usn_statistics.csv")))
 # }
 
 ```
-
-# 5G analysis
 
 ```{r functions definition}
 # Unify 5g synonyms
@@ -336,6 +333,8 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
   return(cbind(Pr.t, Pr.t.given.5g, Pr.boost))
 }
 ```
+
+# 5G analysis
 
 ```{r}
 smry = summary(tweets$five_g)
@@ -492,8 +491,9 @@ set.seed(13712)
 # plot.new()
 # text(x=0.5, y=0.5, val, font = 2, cex = 1)
 # Skip 5G and Coronavirus terms
-d = d[!d$word %in% c("coronavirus", "5g"), ]
-wordcloud(words = d$word, freq = d$freq, min.freq = 3, random.order=FALSE,
+dDoc = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ]
+print("5G and Coronavirus terms are removed")
+wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
 #rm(dtm_tweets, dtm_all_tweets)
@@ -517,6 +517,80 @@ barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
         )
 ```
 
+# Non-5G
+
+```{r Non-5G analyses}
+non_5g_tweets = tweets %>%
+  filter(!five_g)
+
+# Treat n5G individually because it is idiosyncratic to this case only
+n5g_fp = file.path(DIR_TDMs_PATH, paste0(val,"_pure_n5G", MAX_SPARSITY, ".rds"))
+
+if(!file.exists(n5g_fp))
+{
+  n5g_texts = VCorpus(VectorSource(non_5g_tweets$text))
+  n5g_texts = preprocess_texts(n5g_texts, val)
+  # Building the term-doc matrix
+  dtm_n5g_tweets = TermDocumentMatrix(n5g_texts,
+                                      control = list(wordLengths=c(2, Inf)))
+  saveRDS(object = dtm_n5g_tweets, file = n5g_fp)
+  print("TDM for n5G created.")
+} else {
+  dtm_n5g_tweets = readRDS(file = n5g_fp)
+  print("TDM for n5G loaded.")
+}
+```
+
+```{r unpacking combined data -- n5G}
+val = "non_5G"
+dtm_n5g_tweets = removeSparseTerms(x = dtm_n5g_tweets, sparse = MAX_SPARSITY)
+
+# Make the general wordcloud for non 5g terms
+m <- as.matrix(dtm_n5g_tweets)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=unname(v))
+
+vDoc = sort(rowSums(m > 0),decreasing=TRUE)
+dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
+
+p = ggplot(d[1:50, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("occurrences") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in Non-5G Tweets (Excluding Hashtags)")) +
+coord_flip()
+print(p)
+
+ggsave(filename = paste0("wc_analysis_CorpusOcurrences",val,".pdf"),
+         path = "./figures/")
+
+p = ggplot(dDoc[1:50, ],
+     aes(x = reorder(word, freq), y = freq)) +
+geom_bar(stat = "identity") +
+xlab("frequent words") +
+ylab("tweets") +
+#easy_rotate_x_labels(angle = 90) +
+ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in Non-5G Tweets (Excluding Hashtags)")) +
+coord_flip()
+
+ggsave(filename = paste0("wc_analysis_TweetOcurrences",val,".pdf"),
+         path = "./figures/")
+
+print(p)
+rm(p)
+
+print("removing coronavirus term: done")
+dDoc = dDoc[!dDoc$word == "coronavirus", ]
+wordcloud(words = dDoc$word, freq = dDoc$freq,
+          min.freq = 3, random.order=FALSE,
+          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+rm(m, v, d, dDoc, vDoc)
+gc()
+```
+
+---
 
 ```{r iterating over datasets}
 # Iterate to produce the word-clouds all of the datasets one by one
@@ -661,6 +735,8 @@ Where:
 \[P(5g) = \frac{C(tweets_{5g})}{C(tweets_{all})}\]
 
 **This is the salience**.
+
+---
 
 # Evolution Analysis
 
