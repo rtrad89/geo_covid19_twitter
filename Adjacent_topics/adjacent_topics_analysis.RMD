@@ -502,10 +502,7 @@ if("5g" %in% rownames(salience))
   salience["5g",] = NA
   
 barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-        las = 2, cex.names = 0.8
-        # , cex.main = 3,
-        # main ="Top 30 terms whose conditional prob. to occur\nin a tweet given '5g' exceed their marginal prob."
-        )
+        las = 2, cex.names = 0.8)
 
 ```
 
@@ -565,10 +562,11 @@ for(val in unique(tweets$src))
 ```
 
 ```{r evolution visualisation}
+print("Evolution of in all data:")
 topN.all = visualise_evolution(terms_frequencies = freq, freq_threshold = 10,
                                label = "All")
-topN.n5g = visualise_evolution(terms_frequencies = freq.n5g, freq_threshold = 10,
-                               label = "Non-5G")
+
+print("Evolution of in 5G data:")
 topN.5g = visualise_evolution(terms_frequencies = freq.5g, freq_threshold = 10,
                               label = "5G")
 
