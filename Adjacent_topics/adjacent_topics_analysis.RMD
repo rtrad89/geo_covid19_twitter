@@ -333,8 +333,8 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   #       path = "./figures/", device = "pdf")
   rm(p)
   
-  print("Pearson Correlation among coronavirus and other terms (threshold = 0.1):")
-  print(findAssocs(dtm_htgs, terms = c("coronavirus"), corlimit = .1))
+  print("Pearson Correlation among 5G and other terms (threshold = 0.1):")
+  print(findAssocs(dtm_htgs, terms = c("5g"), corlimit = .1))
   set.seed(13712)
   
   wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
@@ -484,7 +484,7 @@ The same thing is applied to 5G tweets, but without removing sparsity as there i
 
 ```{r building the TDM for 5G}
 dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
-                        val = "Non-5G",
+                        val = "5G",
                         sparsity_threshold = NA, is5G = TRUE)
 ```
 
