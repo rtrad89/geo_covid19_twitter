@@ -487,7 +487,8 @@ print(p)
 rm(p)
 
 print("Pearson Correlation among 5g and other topics (threshold = 0.1):")
-print(findAssocs(dtm_all_tweets, terms = c("5g"), corlimit = .1))
+associations = findAssocs(dtm_all_tweets, terms = c("5g"), corlimit = .1)
+barplot(dtm_htgs$associations5g$`5g`, las = 2, cex.names = 0.8, col = "#77E197", ylim=c(0, 0.35))
 
 set.seed(13712)
 
@@ -552,7 +553,7 @@ if("5g" %in% names(salience))
   salience["5g",] = NA
   
 barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-        las = 2, cex.names = 0.8)
+        las = 2, cex.names = 0.8, ylim=c(0, 0.2))
 ```
 
 ---

@@ -274,10 +274,6 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   {
     m = as.matrix(dtm_htgs)
     
-    # # Corpus counts
-    # v = sort(rowSums(m),decreasing=TRUE)
-    # d = data.frame(word = names(v),freq=unname(v))
-    
     # Tweets counts
     vDoc = sort(rowSums(m > 0),decreasing=TRUE)
     dDoc = data.frame(word = names(vDoc),freq=unname(vDoc))
@@ -294,16 +290,6 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
                                             five_G_suffix,
                                            MAX_SPARSITY,".rds")))
   }
-
-  # p = ggplot(d[2:51, ],
-  #      aes(x = reorder(word, freq), y = freq)) +
-  # geom_bar(stat = "identity") +
-  # xlab("frequent words") +
-  # ylab("occurrences") +
-  # #easy_rotate_x_labels(angle = 90) +
-  # ggtitle(paste("Top 50 Frequent Words Corpus Occurrences in", val, "Besides 'Coronavirus'")) +
-  # coord_flip()
-  # print(p)
   
   if(remove_corona_5g_tokens)
   {
@@ -334,7 +320,10 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   rm(p)
   
   print("Pearson Correlation among 5G and other terms (threshold = 0.1):")
-  print(findAssocs(dtm_htgs, terms = c("5g"), corlimit = .1))
+  associations = findAssocs(dtm_htgs, terms = c("5g"), corlimit = .1)
+  # barplot(associations$`5g`, las = 2, cex.names = 0.8, col ="#77E197",
+  #         ylim=c(0, 0.35))
+  
   set.seed(13712)
   
   wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3,
@@ -343,7 +332,7 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   
   # Return a vector of the DTMs, before and after sparsity removal
   gc()
-  return(list(sparse=ret, pruned=dtm_htgs, termfreqs=dDoc))
+  return(list(sparse=ret, pruned=dtm_htgs, termfreqs=dDoc, associations5g=associations))
 }
 
 visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
@@ -471,6 +460,7 @@ dtm_all = vsm_modeller(data = tweets, RESAVE_TDMs = RESAVE_TDMs,
 dtm_htgs = vsm_modeller(data = tweets.n5g, RESAVE_TDMs = RESAVE_TDMs,
                         val = "Non-5G",
                         sparsity_threshold = MAX_SPARSITY, is5G = FALSE)
+
 ```
 
 As we see, the current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
@@ -482,10 +472,13 @@ In some tweets, a term is repeated more than once, the case we consider redundan
 # 5G Tweets
 The same thing is applied to 5G tweets, but without removing sparsity as there is no need to due to the smaller size of data.
 
-```{r building the TDM for 5G}
+```{r building the TDM for 5G, fig.height=5, fig.width=8}
 dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
                         val = "5G",
                         sparsity_threshold = NA, is5G = TRUE)
+
+# Plot the pearson correlation values
+barplot(dtm_htgs$associations5g$`5g`, las = 2, cex.names = 0.8, col = "#77E197", ylim=c(0, 0.35))
 ```
 
 The current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
@@ -502,7 +495,7 @@ if("5g" %in% rownames(salience))
   salience["5g",] = NA
   
 barplot(sort(salience[, "Pr.boost"], decreasing = T)[1:30],
-        las = 2, cex.names = 0.8)
+        las = 2, cex.names = 0.8, ylim=c(0, 0.2))
 
 ```
 
