@@ -488,8 +488,13 @@ rm(p)
 
 print("Pearson Correlation among 5g and other topics (threshold = 0.1):")
 associations = findAssocs(dtm_all_tweets, terms = c("5g"), corlimit = .1)
+if(length(associations$`5g`) > 0)
+{
 barplot(associations$`5g`, las = 2, cex.names = 0.8, col = "#77E197", 
         ylim=c(0, 0.35))
+} else {
+  print("No strong-enough correlations to 5G found.")
+}
 
 set.seed(13712)
 
