@@ -539,7 +539,9 @@ ggtitle(paste("Top 50 Frequent Words Tweet Occurrences in", val, " 5G (Excluding
 coord_flip()
 print(p)
 rm(p)
+```
 
+```{r correlation plotting, fig.width=8, fig.height=5}
 print("Pearson Correlation among 5G and other topics (threshold = 0.1):")
 associations5g = findAssocs(dtm_tweets, terms = c("5g"), corlimit = .1)
 l = length(associations5g$`5g`)
@@ -547,12 +549,14 @@ if(l > 0)
 {
   print(paste("There are", l ,"strongly correlated terms to 5G"))
   barplot(associations5g$`5g`, las = 2, cex.names = 0.8, col = "#77E197", 
-          ylim=c(0, 0.35))
+          ylim=c(0, 0.5))
 
 } else {
   print("No strong-enough correlations to 5G found.")
 }
+```
 
+```{r wordclouds}
 set.seed(13712)
 
 print("5G stemmed word cloud:")
