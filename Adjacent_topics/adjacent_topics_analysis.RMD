@@ -320,6 +320,7 @@ vsm_modeller = function(data, RESAVE_TDMs, val, is5G,
   rm(p)
   
   print("Pearson Correlation among 5G and other terms (threshold = 0.1):")
+  #TODO: investigate why coronavirus is not correlated to 5g at all?
   associations = findAssocs(dtm_htgs, terms = c("5g"), corlimit = .1)
   # barplot(associations$`5g`, las = 2, cex.names = 0.8, col ="#77E197",
   #         ylim=c(0, 0.35))
@@ -396,7 +397,7 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
     #         subtitle = "Numbers in parantheses are total percentage of tweets containing the tag in all datasets combined") +
     guides(fill = guide_legend(reverse = T, override.aes=list(shape=21))) +
     scale_fill_manual(values = c("#381A15","#5E3341","#6C5979","#5489A5",
-                                 "#36B8B0","#77E197","#E4FE75")) +
+                                 "#77E197","#E4FE75")) +
     theme(text = element_text(size=16))
   
   # ggsave(filename = paste0("Adjacent_Evolution_", label, ".pdf"),
@@ -478,7 +479,7 @@ dtm_htgs = vsm_modeller(data = tweets.5g, RESAVE_TDMs = RESAVE_TDMs,
                         sparsity_threshold = NA, is5G = TRUE)
 
 # Plot the pearson correlation values
-barplot(dtm_htgs$associations5g$`5g`, las = 2, cex.names = 0.8, col = "#77E197", ylim=c(0, 0.35))
+barplot(dtm_htgs$associations5g$`5g`, las = 2, cex.names = 0.8, col = "#77E197", ylim=c(0, 0.5))
 ```
 
 The current term-document matrix holds `r dtm_htgs$sparse$nrow` terms in `r dtm_htgs$sparse$ncol` tweets.
