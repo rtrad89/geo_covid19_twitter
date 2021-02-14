@@ -47,6 +47,8 @@ DIR_TDMs_PATH = file.path("..", "..", "..",
                      "preprocessed_tdms")
 
 MAX_SPARSITY = 0.99
+
+NGRAMS = 2
 ```
 
 Loading the data:
@@ -332,6 +334,10 @@ compute_salience = function(tdm.all, tdm.5g, verbose = F)
   
   return(cbind(Pr.t, Pr.t.given.5g, Pr.boost))
 }
+
+NgramTokenizer <-
+  function(x, ngram=NGRAMS)
+    unlist(lapply(ngrams(words(x), ngram), paste, collapse = " "), use.names = FALSE)
 ```
 
 # 5G analysis
@@ -429,9 +435,9 @@ if(RESAVE_TDMs)
   texts = preprocess_texts(texts, val)
   # Building the term-doc matrix
   dtm_tweets = TermDocumentMatrix(texts,
-                                  control = list(wordLengths=c(2, Inf)))
+                                  control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
   saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"_pure_5G",
+                                                paste0(val,"ngram",NGRAMS, "_pure_5G",
                                                        MAX_SPARSITY,".rds")))
   
   # MEMORY INSUFFICIENT!
@@ -439,18 +445,18 @@ if(RESAVE_TDMs)
   all_texts = preprocess_texts(all_texts, val)
   # Building the term-doc matrix
   dtm_all_tweets = TermDocumentMatrix(all_texts,
-                                      control = list(wordLengths=c(2, Inf)))
+                                      control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
   saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val, "_pure_",MAX_SPARSITY,".rds")))
+                                                paste0(val,"ngram",NGRAMS,  "_pure_",MAX_SPARSITY,".rds")))
   
 } else {
   
   # Load the TDM
   dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"_pure_5G",
+                                                paste0(val,"ngram",NGRAMS, "_pure_5G",
                                                        MAX_SPARSITY,".rds")))
   dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                paste0(val, "_pure_",MAX_SPARSITY,".rds")))
+                                                paste0(val, "ngram",NGRAMS, "_pure_",MAX_SPARSITY,".rds")))
 }
 
 print("Salience and conditional probabilities after sufficing with 99% sparsity:")
@@ -595,24 +601,24 @@ for (val in unique(tweets$src))
     texts = preprocess_texts(texts, val)
     # Building the term-doc matrix
     dtm_tweets = TermDocumentMatrix(texts,
-                                    control = list(wordLengths=c(2, Inf)))
+                                    control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
     saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                  paste0(val,"_pure_5G", MAX_SPARSITY,".rds")))
+                                                  paste0(val,"ngram",NGRAMS, "_pure_5G", MAX_SPARSITY,".rds")))
 
     # All tweets now
     texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
     texts = preprocess_texts(texts, val)
     # Building the term-doc matrix
     dtm_all_tweets = TermDocumentMatrix(texts,
-                                        control = list(wordLengths=c(2, Inf)))
+                                        control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
     saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-                                                      paste0("_pure_", val, MAX_SPARSITY,".rds")))
+                                                      paste0("ngram",NGRAMS, "_pure_", val, MAX_SPARSITY,".rds")))
   } else {
     # Loading the term-doc matrices
     dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                  paste0(val,"_pure_5G", MAX_SPARSITY,".rds")))
+                                                  paste0(val,"ngram",NGRAMS, "_pure_5G", MAX_SPARSITY,".rds")))
     dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                      paste0("_pure_", val, MAX_SPARSITY,".rds")))
+                                                      paste0("ngram",NGRAMS, "_pure_", val, MAX_SPARSITY,".rds")))
   }
   
   # Run all tweets analysis
@@ -658,8 +664,8 @@ for (val in unique(tweets$src))
 DIR_FREQ_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "freqterms")
-saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms.rds"))
-saveRDS(object = freq.terms.all, file = file.path(DIR_FREQ_PATH, "_pure_freq_terms_all.rds"))
+saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "ngram",NGRAMS, "_pure_freq_terms.rds"))
+saveRDS(object = freq.terms.all, file = file.path(DIR_FREQ_PATH, "ngram",NGRAMS, "_pure_freq_terms_all.rds"))
 
 ```
 
