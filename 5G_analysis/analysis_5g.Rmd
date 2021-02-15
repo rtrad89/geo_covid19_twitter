@@ -40,8 +40,8 @@ DIR_PATH = file.path("..", "..", "..",
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
-RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
-RESAVE_INDIVIDUAL_TDMs = FALSE # For individual datasets
+RESAVE_TDMs = TRUE  # For combined datasets, TRUE takes a LOT of time!
+RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -190,27 +190,6 @@ if (file.exists(file.path(".", "usn_statistics.csv")))
   write.csv(usn, file = file.path(".", "usn_statistics.csv"),
             row.names = FALSE)
 }
-# 
-# # Visualise
-# # TODO: combine these plots into smaller grid ones
-# for (val in unique(usn$src))
-# {
-#   data = usn %>% filter(src == val)
-#   
-#   data %>%
-#     select(user_screen_name, n)
-#   plt =
-#     ggplot(data, aes(x = reorder(user_screen_name, -n), y=n)) +
-#     geom_bar(stat = "identity") +
-#     ggtitle(paste("Top 25 tweeting frequencies by users in", val)) +
-#     xlab("users") +
-#     ylim(0, 7500) +
-#     easy_remove_x_axis(what = "text")
-#     
-# 
-#   print(plt)
-#   rm(plt)
-# }
 
 ```
 
@@ -247,7 +226,8 @@ unify_coronavirus = function(x)
 }
 
 replacePunctuation = content_transformer(function(x) {
-  return (gsub("[[:punct:]]"," ", x))
+  # Remove all punctuation but apostrophes
+  return (gsub("[[:punct:]]\\'"," ", x))
   })
 
 set.seed(13712)
@@ -460,7 +440,7 @@ if(RESAVE_TDMs)
 }
 
 print("Salience and conditional probabilities after sufficing with 99% sparsity:")
-dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
+#dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
 ```
 
 ```{r all data}
@@ -511,7 +491,7 @@ print("General stemmed word cloud:")
 
 dDoc = dDoc[!dDoc$word=="coronavirus", ]
 print("Coronavirus term is removed")
-wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3, random.order=FALSE,
+wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 1, random.order=FALSE,
           max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
 ```
@@ -570,7 +550,7 @@ print("5G stemmed word cloud:")
 dDoc = dDoc[!dDoc$word %in% c("coronavirus", "5g"), ]
 print("5G and Coronavirus terms are removed")
 wordcloud(words = dDoc$word, freq = dDoc$freq, min.freq = 3, random.order=FALSE,
-          max.words=200, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+          max.words=100, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
 
 #rm(dtm_tweets, dtm_all_tweets)
 ```
@@ -664,8 +644,8 @@ for (val in unique(tweets$src))
 DIR_FREQ_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "freqterms")
-saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, "ngram",NGRAMS, "_pure_freq_terms.rds"))
-saveRDS(object = freq.terms.all, file = file.path(DIR_FREQ_PATH, "ngram",NGRAMS, "_pure_freq_terms_all.rds"))
+saveRDS(object = freq.terms, file = file.path(DIR_FREQ_PATH, paste0("ngram",NGRAMS,"_pure_freq_terms.rds")))
+saveRDS(object = freq.terms.all, file = file.path(DIR_FREQ_PATH, paste0("ngram",NGRAMS,"_pure_freq_terms_all.rds")))
 
 ```
 
