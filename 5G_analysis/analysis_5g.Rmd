@@ -40,7 +40,7 @@ DIR_PATH = file.path("..", "..", "..",
 FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
-RESAVE_TDMs = TRUE  # For combined datasets, TRUE takes a LOT of time!
+RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
 RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
@@ -227,7 +227,7 @@ unify_coronavirus = function(x)
 
 replacePunctuation = content_transformer(function(x) {
   # Remove all punctuation but apostrophes
-  return (gsub("[[:punct:]]\\'"," ", x))
+  return (gsub("[^[:alnum:]\\']"," ", x))
   })
 
 set.seed(13712)
@@ -439,8 +439,8 @@ if(RESAVE_TDMs)
                                                 paste0(val, "ngram",NGRAMS, "_pure_",MAX_SPARSITY,".rds")))
 }
 
-print("Salience and conditional probabilities after sufficing with 99% sparsity:")
-#dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
+print("Salience and conditional probabilities after sufficing with 99.8% sparsity:")
+dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = 0.998)
 ```
 
 ```{r all data}
