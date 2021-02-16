@@ -46,7 +46,7 @@ DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
 
-MAX_SPARSITY = 0.99
+MAX_SPARSITY = 0.998
 
 NGRAMS = 2
 ```
@@ -418,7 +418,7 @@ if(RESAVE_TDMs)
                                   control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
   saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
                                                 paste0(val,"ngram",NGRAMS, "_pure_5G",
-                                                       MAX_SPARSITY,".rds")))
+                                                       ".rds")))
   
   # MEMORY INSUFFICIENT!
   all_texts = VCorpus(VectorSource(tweets$text))
@@ -427,20 +427,19 @@ if(RESAVE_TDMs)
   dtm_all_tweets = TermDocumentMatrix(all_texts,
                                       control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
   saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"ngram",NGRAMS,  "_pure_",MAX_SPARSITY,".rds")))
+                                                paste0(val,"ngram",NGRAMS,"_pure",".rds")))
   
 } else {
   
   # Load the TDM
   dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                paste0(val,"ngram",NGRAMS, "_pure_5G",
-                                                       MAX_SPARSITY,".rds")))
+                                                paste0(val,"ngram",NGRAMS, "_pure_5G",".rds")))
   dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                paste0(val, "ngram",NGRAMS, "_pure_",MAX_SPARSITY,".rds")))
+                                                paste0(val, "ngram",NGRAMS, "_pure",".rds")))
 }
 
-print("Salience and conditional probabilities after sufficing with 99.8% sparsity:")
-dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = 0.998)
+print(paste0("Salience and conditional probabilities after sufficing with ", 100*MAX_SPARSITY, "% sparsity"))
+dtm_all_tweets = removeSparseTerms(dtm_all_tweets, sparse = MAX_SPARSITY)
 ```
 
 ```{r all data}
@@ -583,7 +582,7 @@ for (val in unique(tweets$src))
     dtm_tweets = TermDocumentMatrix(texts,
                                     control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
     saveRDS(object = dtm_tweets, file = file.path(DIR_TDMs_PATH,
-                                                  paste0(val,"ngram",NGRAMS, "_pure_5G", MAX_SPARSITY,".rds")))
+                                                  paste0(val,"ngram",NGRAMS, "_pure_5G",".rds")))
 
     # All tweets now
     texts = VCorpus(VectorSource(subset(tweets, src == val)$text))
@@ -592,13 +591,13 @@ for (val in unique(tweets$src))
     dtm_all_tweets = TermDocumentMatrix(texts,
                                         control = list(wordLengths=c(2, Inf), tokenize = NgramTokenizer))
     saveRDS(object = dtm_all_tweets, file = file.path(DIR_TDMs_PATH,
-                                                      paste0("ngram",NGRAMS, "_pure_", val, MAX_SPARSITY,".rds")))
+                                                      paste0("ngram",NGRAMS, "_pure_", val,".rds")))
   } else {
     # Loading the term-doc matrices
     dtm_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                  paste0(val,"ngram",NGRAMS, "_pure_5G", MAX_SPARSITY,".rds")))
+                                                  paste0(val,"ngram",NGRAMS, "_pure_5G",".rds")))
     dtm_all_tweets = readRDS(file = file.path(DIR_TDMs_PATH,
-                                                      paste0("ngram",NGRAMS, "_pure_", val, MAX_SPARSITY,".rds")))
+                                                      paste0("ngram",NGRAMS, "_pure_", val,".rds")))
   }
   
   # Run all tweets analysis
@@ -739,10 +738,12 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
 ```
 
 ```{r visualising evolution, fig.width=10, fig.height=15}
+print("Top 15 bigrams evolution in all data:")
 retAll = visualise_evolution(terms_frequencies = freq.terms.all, label = "All",
-                          freq_threshold = 10)
+                          freq_threshold = 15)
+print("Top 15 bigrams evolution in 5G data:")
 ret5G = visualise_evolution(terms_frequencies = freq.terms, label = "5G",
-                          freq_threshold = 10)
+                          freq_threshold = 15)
 ```
 
 
