@@ -41,7 +41,7 @@ FNAME = "annotated_tweets.csv"
 FPATH = file.path(DIR_PATH, FNAME)
 
 RESAVE_TDMs = FALSE  # For combined datasets, TRUE takes a LOT of time!
-RESAVE_INDIVIDUAL_TDMs = TRUE # For individual datasets
+RESAVE_INDIVIDUAL_TDMs = FALSE # For individual datasets
 DIR_TDMs_PATH = file.path("..", "..", "..",
                      "Datasets","twitter-sars-cov-2",
                      "preprocessed_tdms")
@@ -738,12 +738,12 @@ visualise_evolution = function(terms_frequencies, label, freq_threshold=15)
 ```
 
 ```{r visualising evolution, fig.width=10, fig.height=15}
-print("Top 15 bigrams evolution in all data:")
+print("Top 10 bigrams evolution in all data:")
 retAll = visualise_evolution(terms_frequencies = freq.terms.all, label = "All",
-                          freq_threshold = 15)
-print("Top 15 bigrams evolution in 5G data:")
+                          freq_threshold = 10)
+print("Top 10 bigrams evolution in 5G data:")
 ret5G = visualise_evolution(terms_frequencies = freq.terms, label = "5G",
-                          freq_threshold = 15)
+                          freq_threshold = 10)
 ```
 
 

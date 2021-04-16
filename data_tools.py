@@ -113,7 +113,7 @@ class DataTools:
             schema = ["id", "created_at", fld, "favorite_count",
                       "retweet_count", "user_screen_name",
                       "user_followers_count", "user_friends_count",
-                      "text", "hashtags"]
+                      "text", "hashtags", "lang"]
 
             if already_pruned:
                 # Then retweets are removed

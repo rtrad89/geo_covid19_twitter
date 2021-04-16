@@ -70,9 +70,8 @@ def main():
                                                 store=resave_5g_tagged_tweets)
 
     logger.info("Annotation of 5G finished")
-
-    logger.shutdown()
     logger.info("Main Module End.")
+    logger.shutdown()
 
 
 if __name__ == "__main__":
